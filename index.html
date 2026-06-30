@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>北京七日行 · 7/7 出发</title>
+<meta name="description" content="两个人的北京七日行程地图 · 故宫天安门 · 颐和园圆明园清华北大 · 什刹海胡同 · 动物园海洋馆 · 军博 · 环球影城">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="北京行程">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23ff3b30'/%3E%3Ctext x='50' y='66' font-size='52' text-anchor='middle' fill='white' font-family='-apple-system,sans-serif'%3E京%3C/text%3E%3C/svg%3E">
+<style>
+/* ═══════════════════════════════════════════
+   Design System — edit :root to change theme
+   ═══════════════════════════════════════════ */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --bg-tertiary: #fbfbfd;
+  --bg-grouped: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary: #aeaeb2;
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --tint-red: #ff3b30;
+  --tint-orange: #ff9500;
+  --tint-green: #34c759;
+  --tint-blue: #007aff;
+  --tint-purple: #af52de;
+  --tint-pink: #ff2d55;
+  --separator: rgba(60, 60, 67, .12);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", "Arial", sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.47059;
+  letter-spacing: -0.01em;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Map ── */
+#map { width: 100%; height: 40vh; min-height: 280px; position: sticky; top: 0; z-index: 100; background: #eee; }
+.locate-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border: none; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  position: absolute; right: 10px; bottom: 10px; z-index: 110;
+}
+.locate-btn.active { color: #007aff; }
+.amap-fail {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:8px; padding:24px; text-align:center; background:var(--bg-grouped);
+  font-size:13px; color:var(--text-secondary); z-index: 50;
+}
+.amap-fail b { color: var(--text-primary); font-size:15px; }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; gap: 6px; padding: 12px 16px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: rgba(255,255,255,.85); -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px); position: sticky; top: 40vh; z-index: 99;
+  border-bottom: .5px solid var(--separator); scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: 7px 16px; border-radius: 980px; border: none;
+  background: var(--bg-grouped); color: var(--text-secondary);
+  font-size: 14px; font-weight: 500; cursor: pointer; transition: all .25s ease;
+  white-space: nowrap; letter-spacing: -0.01em;
+}
+.tab:active { transform: scale(.96); }
+.tab.active { background: var(--accent); color: #fff; }
+
+/* ── Main content ── */
+.content { max-width: 680px; margin: 0 auto; padding: 16px 16px calc(24px + var(--safe-bottom)); }
+
+/* ── Overview ── */
+.hero { text-align: center; padding: 28px 20px 20px; }
+.hero h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.hero .subtitle { font-size: 16px; color: var(--text-secondary); margin-top: 6px; font-weight: 400; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.info-card { background: var(--bg-elevated); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); }
+.info-card .label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 6px; }
+.info-card .value { font-size: 14px; font-weight: 600; line-height: 1.4; }
+
+/* ── Section headers ── */
+.section-head { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; padding: 20px 0 8px; }
+
+/* ── Day header ── */
+.day-head { padding: 20px 0 12px; }
+.day-head h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.day-head p { font-size: 15px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ── Route bar ── */
+.route-bar { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow-sm); font-size: 13px; color: var(--text-secondary); line-height: 1.7; white-space: pre-line; }
+.route-bar strong { color: var(--text-primary); }
+
+/* ── Timeline ── */
+.timeline { position: relative; padding-left: 24px; }
+.timeline::before { content: ''; position: absolute; left: 7px; top: 20px; bottom: 20px; width: 1.5px; background: var(--separator); }
+.tl-item { position: relative; margin-bottom: 10px; }
+.tl-dot { position: absolute; left: -20px; top: 18px; width: 10px; height: 10px; border-radius: 50%; z-index: 1; box-shadow: 0 0 0 3px var(--bg-secondary); }
+.tl-dot.food { background: var(--tint-red); }
+.tl-dot.spot { background: var(--tint-blue); }
+.tl-dot.hotel { background: var(--tint-orange); }
+.tl-dot.drink { background: var(--tint-purple); }
+.tl-dot.transport { background: var(--text-tertiary); }
+
+/* ── Card ── */
+.card { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-sm); transition: box-shadow .25s ease; cursor: pointer; }
+.card:active { box-shadow: var(--shadow-md); }
+.card .time { font-size: 12px; font-weight: 600; color: var(--text-tertiary); letter-spacing: .01em; }
+.card .name { font-size: 17px; font-weight: 600; margin: 2px 0 4px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px; }
+.card .desc { font-size: 14px; color: var(--text-secondary); line-height: 1.45; }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; }
+.badge.food { background: rgba(255,59,48,.1); color: var(--tint-red); }
+.badge.spot { background: rgba(0,122,255,.1); color: var(--tint-blue); }
+.badge.drink { background: rgba(175,82,222,.1); color: var(--tint-purple); }
+.badge.hotel { background: rgba(255,149,0,.1); color: var(--tint-orange); }
+
+/* Budget */
+.budget { display: inline-block; margin-top: 6px; padding: 3px 10px; background: var(--bg-grouped); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+/* Reservation warning chip */
+.rsv-warn { display: inline-flex; align-items: center; gap:4px; margin-top: 6px; padding: 3px 10px; background: rgba(255,149,0,.1); color: var(--tint-orange); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; }
+
+/* Links row */
+.links { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 8px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+  text-decoration: none !important; transition: filter .2s;
+}
+.btn:active { filter: brightness(.9); }
+.btn.nav { background: var(--accent); color: #fff; }
+.btn.xhs { background: #ff2442; color: #fff; }
+.btn.dp { background: #ffa700; color: #fff; }
+.btn.rsv { background: var(--tint-green); color: #fff; }
+
+/* Action Sheet */
+.as-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+.as-overlay.show { opacity: 1; pointer-events: auto; }
+.as-sheet {
+  width: 100%; max-width: 420px;
+  padding: 0 8px 34px;
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+.as-overlay.show .as-sheet { transform: translateY(0); }
+.as-group {
+  background: rgba(255,255,255,.88); backdrop-filter: blur(20px);
+  border-radius: 14px; overflow: hidden; margin-bottom: 8px;
+}
+.as-group .as-item {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 16px; font-size: 18px; color: #007aff; font-weight: 500;
+  border: none; background: none; width: 100%; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.as-group .as-item + .as-item { border-top: .5px solid rgba(0,0,0,.12); }
+.as-group .as-item:active { background: rgba(0,0,0,.06); }
+.as-cancel { font-weight: 600; }
+
+/* Details — default open */
+.details {
+  margin-top: 10px; padding-top: 10px;
+  border-top: .5px solid var(--separator);
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+}
+.details.closed { display: none; }
+
+/* ── Overview day list ── */
+.day-list .card { margin-bottom: 8px; }
+.day-list .card .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+/* ── Booking checklist ── */
+.pay-summary { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-sm); font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+.pay-summary h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; display:flex; align-items:center; gap:6px; }
+.pay-summary .warn { color: var(--tint-red); }
+.pay-summary .ok-text { color: var(--tint-green); }
+.pay-summary table { width:100%; border-collapse: collapse; margin-top: 4px; }
+.pay-summary td { padding: 5px 0; border-top: .5px solid var(--separator); vertical-align: top; }
+.pay-summary td:first-child { font-weight:600; white-space:nowrap; padding-right:10px; color:var(--text-primary); }
+
+/* ── Legend ── */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 0; font-size: 12px; color: var(--text-secondary); }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── AMap overrides ── */
+.amap-info-content { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif !important; font-size: 13px !important; line-height: 1.6 !important; padding: 2px !important; }
+.amap-info-content b { font-size: 14px; }
+.amap-info-content a { color: var(--accent) !important; }
+.amap-logo, .amap-copyright { opacity: .55; }
+
+/* ── Edit mode ── */
+.edit-toggle { margin-left: auto; background: var(--tint-orange); color: #fff; font-weight: 700; }
+.edit-toggle.active { background: var(--tint-red); }
+.edit-banner { background: rgba(255,149,0,.12); color: #b25f00; border-radius: var(--radius-md); padding: 10px 14px; font-size: 12.5px; line-height: 1.6; margin-bottom: 14px; }
+.edit-day-head { display: flex; flex-direction: column; gap: 6px; padding: 16px 0 12px; }
+.edit-card { cursor: default; }
+.edit-row { margin-bottom: 8px; }
+.ed-input { width: 100%; border: 1px solid var(--separator); border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit; background: var(--bg-grouped); color: var(--text-primary); }
+textarea.ed-input { min-height: 56px; resize: vertical; }
+.ed-row2 { display: flex; gap: 8px; }
+.ed-row2 .ed-input { flex: 1; }
+.edit-hint { font-size: 12px; color: var(--text-tertiary); margin: 2px 0 8px; }
+.btn.del { background: var(--tint-red); color: #fff; }
+.btn.add-loc { display: block; width: 100%; text-align: center; background: var(--bg-grouped); color: var(--text-secondary); border: 1.5px dashed var(--text-tertiary); padding: 13px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; margin-top: 8px; cursor: pointer; }
+.io-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.io-row button, .io-row label { flex: 1; min-width: 100px; text-align: center; padding: 10px 6px; border-radius: var(--radius-md); background: var(--bg-elevated); box-shadow: var(--shadow-sm); font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--text-primary); border: none; display: block; }
+</style>
+</head>
+<body>
+<div id="map">
+  <button class="locate-btn" id="locateBtn" title="我的位置">📍</button>
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="content" id="content"></div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  REPLACE THIS SECTION — Hotel and Days data (WGS84 坐标)      ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// 高德地图 Key + 安全密钥（在 https://lbs.amap.com 控制台申请，类型选「Web端(JS API)」）
+const AMAP_KEY = '5adf8f0822d8964560c281768e1b8839';
+const AMAP_SECRET = '26a427f1ffefc339f421bf7c4d21d8ee';
+
+const HOTEL = { name: '亚朵轻居酒店(三元桥店)', lat: 39.9658, lng: 116.4564 };
+
+const DEFAULT_DAYS = [
+  { id: 0, label: '总览', color: '#0071e3', locations: [] },
+
+  { id: 1, label: 'D1', date: '7月7日 周二 · 抵京', title: '抵京 · 与对象碰头', color: '#ff9500', locations: [
+    { name: '亚朵轻居酒店(三元桥店)', lat: 39.9658, lng: 116.4564, type: 'hotel', time: '15:00',
+      desc: '办理入住，放下行李，简单休整。主要住这家，离对象家（新源里）很近。',
+      detail: '同区域备选住宿：北京希尔顿酒店（在对象家附近，待定，可以中途换过去住两天）；如果决定换酒店，记得提前在订房 App 上锁好房，旺季周末房源会紧张。' },
+    { name: '新源里 · 与对象碰头', lat: 39.9430, lng: 116.4550, type: 'spot', time: '17:30',
+      desc: '到对象家附近碰头，这天不安排紧凑行程，留时间倒时差、聊聊接下来一周怎么走。' },
+    { name: '簋街 · 接风饭', lat: 39.9420, lng: 116.4210, type: 'food', time: '19:30',
+      desc: '簋街整条街都是吃小龙虾、烤鱼的地方，第一晚接风饭安排在这。胡大酒楼是老牌选择，人多需要排号，建议提前到或用大众点评小程序排队。',
+      budget: '¥150-200/人', dianpingKeyword: '胡大酒楼簋街' },
+    { name: '湘水（备选辣口味）', lat: 39.9425, lng: 116.4225, type: 'food', time: '—',
+      desc: '笔记上写的另一个候选，如果胡大排队太久可以试试这家，具体店名建议到了让对象再确认一下大众点评评分。', dianpingKeyword: '簋街 小龙虾' }
+  ]},
+
+  { id: 2, label: 'D2', date: '7月8日 周三 · 故宫天安门', title: '故宫 · 天安门 · 人民大会堂', color: '#007aff', locations: [
+    { name: '天安门广场', lat: 39.9054, lng: 116.3976, type: 'spot', time: '08:30',
+      desc: '建议从天安门东地铁站 B/D 口出来，先安检进广场。如果想看升旗仪式要单独约「升旗」时段，且要起得很早，跟这条线路冲突，这次先不强求。',
+      detail: '预约提醒：广场需提前 1-7 天在「天安门广场预约参观」小程序约，每日中午12点放出新一批可约名额；如果已约了人民大会堂或毛主席纪念堂，可以直接凭预约记录进广场，不需要再单独约广场。' },
+    { name: '故宫博物院', lat: 39.9163, lng: 116.3972, type: 'spot', time: '09:30',
+      desc: '从午门进，建议留 3 小时以上，自南向北单向参观，出口在神武门或东华门，出来正好接景山公园拍故宫全景（备选）。',
+      budget: '旺季60元/人（4-10月）', dianpingKeyword: '故宫博物院',
+      detail: '⚠️ 预约提醒：不售当日票，必须提前 7 天 20:00 在「故宫博物院」小程序约（比如7/8要去，得在7/1晚8点开抢），每个身份证每天限约1张；每周一闭馆（法定节假日除外），7/8是周三没问题。务必用真实身份证信息预约，现场刷身份证+人脸核验入院。' },
+    { name: '人民大会堂', lat: 39.9059, lng: 116.3883, type: 'spot', time: '13:30',
+      desc: '故宫出来打车或步行到人民大会堂，下午看万人大礼堂、宴会厅，整体参观大概1小时左右。',
+      detail: '预约提醒：提前 1-3 天在「人民大会堂参观预约」小程序约，不售当日票不设现场票；不能带包入场（南门东侧可寄存），记得带身份证。' },
+    { name: '王府井小吃街（备选）', lat: 39.9139, lng: 116.4108, type: 'spot', time: '—',
+      desc: '如果时间和体力还有余裕，可以顺路逛逛王府井，吃点小吃，离故宫不远。' }
+  ]},
+
+  { id: 3, label: 'D3', date: '7月9日 周四 · 颐和园圆明园清华北大', title: '西北郊：颐和园 · 圆明园 · 清华北大', color: '#af52de', locations: [
+    { name: '圆明园', lat: 40.0080, lng: 116.2977, type: 'spot', time: '09:00',
+      desc: '西洋楼遗址、福海都值得逛，门票当日买、随时可约，不用提前太久。', budget: '大门票¥10起' },
+    { name: '清华大学', lat: 40.0030, lng: 116.3267, type: 'spot', time: '11:30',
+      desc: '从圆明园东门到清华西门很近。校园很大，主要看看清华学堂、二校门拍照就行，时间不用太长。',
+      detail: '预约提醒：通过「清华大学」官方微信公众号预约入校，每日限额，建议提前 3-7 天约，暑期是参观高峰，名额会比较紧张。' },
+    { name: '北京大学', lat: 39.9928, lng: 116.3057, type: 'spot', time: '13:30',
+      desc: '未名湖、博雅塔是必看，从清华到北大打车很近。',
+      detail: '预约提醒：通过「北京大学」官方微信公众号或「北京大学游客服务」小程序预约，同样建议提前几天约，暑期名额紧张。' },
+    { name: '颐和园', lat: 39.9999, lng: 116.2755, type: 'spot', time: '15:30',
+      desc: '昆明湖、长廊，建议留 2 小时以上，傍晚的光线拍照很出片。', budget: '旺季30元/人（4-10月）' }
+  ]},
+
+  { id: 4, label: 'D4', date: '7月10日 周五 · 什刹海胡同', title: '什刹海 · 南锣北锣 · 东四', color: '#ff3b30', locations: [
+    { name: '什刹海', lat: 39.9396, lng: 116.3826, type: 'spot', time: '10:00',
+      desc: '沿岸散步，租自行车或坐胡同三轮都不错，夏天还能划船，悠闲为主。' },
+    { name: '北锣鼓巷', lat: 39.9445, lng: 116.4030, type: 'spot', time: '12:30',
+      desc: '比南锣安静很多，小店和咖啡馆比较多，适合慢慢逛、拍照。' },
+    { name: '南锣鼓巷', lat: 39.9368, lng: 116.4030, type: 'spot', time: '14:00',
+      desc: '北京最热门的胡同商业街，人会比较多，但氛围好，小吃文创可以顺手买点。' },
+    { name: '东四', lat: 39.9290, lng: 116.4160, type: 'spot', time: '16:00',
+      desc: '老北京生活气息更浓，胡同+小店，人少一些，可以走走歇歇。' },
+    { name: '炸鸡晚饭', lat: 39.9368, lng: 116.4548, type: 'food', time: '18:30',
+      desc: '对象想吃炸鸡，三里屯附近韩式炸鸡店选择不少，具体哪家可以让她当天挑，定位先放在三里屯。',
+      dianpingKeyword: '三里屯 炸鸡' },
+    { name: '胡大酒楼（备选，没吃够可以再来一次）', lat: 39.9420, lng: 116.4210, type: 'food', time: '—',
+      desc: '如果第一天没吃尽兴，这天也能再安排一顿，错峰避开周末排队高峰。', dianpingKeyword: '胡大酒楼簋街' }
+  ]},
+
+  { id: 5, label: 'D5', date: '7月11日 周六 · 动物园海洋馆商场', title: '动物园 · 海洋馆 · 三里屯合生汇SKP', color: '#34c759', locations: [
+    { name: '北京动物园', lat: 39.9388, lng: 116.3398, type: 'spot', time: '09:00',
+      desc: '熊猫馆建议优先去，周六是周末客流高峰，越早到越好。', budget: '门票¥15-19/人' },
+    { name: '北京海洋馆', lat: 39.9410, lng: 116.3340, type: 'spot', time: '11:30',
+      desc: '就在动物园西北门旁边，海豚表演场次建议提前在官方小程序查好时间再过去。', budget: '¥175/人起' },
+    { name: '三里屯太古里', lat: 39.9368, lng: 116.4548, type: 'spot', time: '15:00',
+      desc: '逛街拍照，南区北区风格不太一样，年轻潮牌集中在北区。' },
+    { name: '合生汇', lat: 39.8965, lng: 116.4690, type: 'spot', time: '17:00',
+      desc: '朝阳合生汇，吃喝玩乐都齐全，逛累了可以在这吃晚饭。' },
+    { name: 'SKP（备选）', lat: 39.9085, lng: 116.4655, type: 'spot', time: '—',
+      desc: '想看大牌或者单纯逛逛高端商场可以加进来，在大望路，离合生汇不算太远。' }
+  ]},
+
+  { id: 6, label: 'D6', date: '7月12日 周日 · 军博转场环球', title: '军事博物馆 → 转场环球影城', color: '#8e8e93', locations: [
+    { name: '中国人民革命军事博物馆', lat: 39.9075, lng: 116.3270, type: 'spot', time: '09:00',
+      desc: '展厅很大，建议留 2.5-3 小时，南门入馆。今天是周日客流也不低，早点到能少排队。',
+      detail: '⚠️ 预约提醒：免费但必须实名预约，通过「中国人民革命军事博物馆」微信公众号约，每天 8:00 / 17:00 / 20:00 分三批放票，建议提前 5 天左右开始蹲票；每周一闭馆，7/12是周日没问题。' },
+    { name: '北京环球影城大酒店', lat: 39.8275, lng: 116.6750, type: 'hotel', time: '15:00',
+      desc: '军博出来打车或地铁转场，大概1小时车程。先办入住放行李，晚上可以先去逛逛好莱坞大道、看夜景，第二天一早就能第一批入园。',
+      detail: '门票和酒店都建议在「北京环球度假区」官方App或小程序提前预约，暑期是全年最贵最挤的旺季，价格会明显高于平日，能错开周末就尽量错开。' }
+  ]},
+
+  { id: 7, label: 'D7', date: '7月13日 周一 · 环球影城', title: '环球影城整天', color: '#ff2d55', locations: [
+    { name: '北京环球度假区', lat: 39.8328, lng: 116.6818, type: 'spot', time: '08:30',
+      desc: '建议比开园早30分钟到，优先冲哈利波特禁忌之旅、变形金刚基地（排队最长的两个）。中午错峰吃饭，避开12:00-13:00高峰。',
+      budget: '暑期票约¥698-798/人（以官方实时价格为准）',
+      detail: '返程提醒：如果当天要返程，建议晚上19-20点左右离园，环球影城到北京南站/首都机场都有一段车程，记得预留出来，别卡点。门票务必走官方APP/小程序购买，"超低价票""免预约联动"基本都是骗局。' }
+  ]}
+];
+
+// ── 本地保存/读取（编辑模式用，只存在这台设备的浏览器里）──
+const STORAGE_KEY = 'bjtrip-data-v1';
+function cloneDefault() { return JSON.parse(JSON.stringify(DEFAULT_DAYS)); }
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed) && parsed.length) return parsed; }
+  } catch (e) {}
+  return cloneDefault();
+}
+function saveData() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(DAYS)); } catch (e) {} }
+let DAYS = loadData();
+let editMode = false;
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  REPLACE THIS SECTION — Overview tab content                  ║
+// ╚══════════════════════════════════════════════════════════════╝
+function overviewContent() {
+  return `
+  <div class="hero"><h1>北京七日行</h1><p class="subtitle">7月7日出发 · 你 + 对象，两个人的北京</p></div>
+  <div class="info-grid">
+    <div class="info-card"><div class="label">主要住宿</div><div class="value">亚朵轻居·三元桥店</div></div>
+    <div class="info-card"><div class="label">备选住宿</div><div class="value">希尔顿(对象附近，待定)</div></div>
+    <div class="info-card"><div class="label">出发地</div><div class="value">南通 → 北京</div></div>
+    <div class="info-card"><div class="label">环球影城</div><div class="value">D6晚-D7，住园内环球酒店</div></div>
+  </div>
+  <div class="section-head">行程概览</div>
+  <div class="day-list">${DAYS.slice(1).map(d=>`<div class="card" onclick="go(${d.id})"><div class="name"><span class="dot" style="background:${d.color}"></span>${d.label} · ${d.title}</div><div class="desc">${d.date}</div></div>`).join('')}</div>
+  <div class="section-head">⚠️ 预约时间表（务必提前看）</div>
+  <div class="pay-summary">
+    <h4>这几个地方不提前约就去不了</h4>
+    <table>
+      <tr><td>故宫</td><td class="warn">D2前7天20:00整开抢（即7/1晚8点），每证每天限1张，周一闭馆</td></tr>
+      <tr><td>人民大会堂</td><td>D2前1-3天预约，不售当日票</td></tr>
+      <tr><td>天安门广场</td><td>D2前1-7天预约，约了人民大会堂/纪念堂可直接进广场</td></tr>
+      <tr><td>清华/北大</td><td>D3前3-7天通过校方公众号预约，暑期名额紧张</td></tr>
+      <tr><td>军事博物馆</td><td class="warn">D6前约5天开始蹲票，每天8:00/17:00/20:00放票三批，免费但必须约</td></tr>
+      <tr><td>环球影城</td><td>提前1-7天官方APP/小程序购票+订酒店，暑期是全年最贵的档期</td></tr>
+    </table>
+  </div>
+  <div class="section-head">提醒</div>
+  <div class="pay-summary">
+    故宫/军博/人民大会堂/天安门都是实名核验，<b>身份证原件一定要带在身上</b>，别落在酒店。这是参考行程，不是必须照做的剧本——天气、排队情况、体力，随时可以临场调整顺序。
+  </div>
+  <div class="section-head">图例</div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tint-red)"></div>餐厅</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tint-blue)"></div>景点</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tint-orange)"></div>酒店</div>
+  </div>
+  <div class="section-head">✏️ 编辑 &amp; 同步给对象</div>
+  <div class="pay-summary">
+    点顶部标签栏最右边的「✏️ 编辑」可以直接在每张卡片上改时间、名称、预算、描述，地图上的图钉也能直接拖动改地方。<br><br>
+    这些修改只存在<b>这台设备的这个浏览器里</b>，不会自动出现在对象的手机上。要同步给她：你这边点下面「导出」存一个文件，微信发给她；她在自己手机上用 Safari 打开这同一个网页，点「导入」选你发的那个文件就行。
+    <div class="io-row">
+      <button onclick="exportData()">⬇️ 导出当前行程</button>
+      <label for="importFile">⬆️ 导入行程文件</label>
+      <button onclick="resetData()">↺ 恢复默认</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+  </div>`;
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  ENGINE — 高德地图(AMap JS API v2.0) 版本                      ║
+// ║  Do not modify below unless customizing behavior              ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ── WGS84 → GCJ02 坐标转换（国内地图必须做这层转换，否则点位会偏移）──
+const PI = Math.PI, A_AXIS = 6378245.0, EE = 0.00669342162296594323;
+function outOfChina(lng, lat) { return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271; }
+function transformLat(x, y) {
+  let ret = -100.0 + 2.0*x + 3.0*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x));
+  ret += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  ret += (20.0*Math.sin(y*PI) + 40.0*Math.sin(y/3.0*PI)) * 2.0/3.0;
+  ret += (160.0*Math.sin(y/12.0*PI) + 320*Math.sin(y*PI/30.0)) * 2.0/3.0;
+  return ret;
+}
+function transformLng(x, y) {
+  let ret = 300.0 + x + 2.0*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x));
+  ret += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  ret += (20.0*Math.sin(x*PI) + 40.0*Math.sin(x/3.0*PI)) * 2.0/3.0;
+  ret += (150.0*Math.sin(x/12.0*PI) + 300.0*Math.sin(x/30.0*PI)) * 2.0/3.0;
+  return ret;
+}
+function wgs84ToGcj02(lng, lat) {
+  if (outOfChina(lng, lat)) return [lng, lat];
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((A_AXIS * (1 - EE)) / (magic * sqrtMagic) * PI);
+  dLng = (dLng * 180.0) / (A_AXIS / sqrtMagic * Math.cos(radLat) * PI);
+  return [lng + dLng, lat + dLat];
+}
+// 返回 AMap 需要的 [lng,lat] 数组（已转 GCJ02）
+function gpos(loc) { return wgs84ToGcj02(loc.lng, loc.lat); }
+function gposLL(lat, lng) { return wgs84ToGcj02(lng, lat); }
+// 拖动图钉时，把地图上的 GCJ02 坐标近似换算回 WGS84（用于保存数据）
+function gcj02ToWgs84(lng, lat) {
+  if (outOfChina(lng, lat)) return [lng, lat];
+  const [glng, glat] = wgs84ToGcj02(lng, lat);
+  return [lng - (glng - lng), lat - (glat - lat)];
+}
+
+let map, mapReady = false;
+window._AMapSecurityConfig = { securityJsCode: AMAP_SECRET };
+
+function loadAMapScript(cb) {
+  const s = document.createElement('script');
+  s.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}`;
+  s.onload = cb;
+  s.onerror = () => showMapFail();
+  document.head.appendChild(s);
+}
+function showMapFail() {
+  const el = document.getElementById('map');
+  el.innerHTML = '<div class="amap-fail"><b>地图加载失败</b><div>检查一下高德 Key / 安全密钥是否正确，或者控制台「服务设置」里把「数字签名校验」关掉试试。这不影响下面的行程卡片，导航按钮依然可以用。</div></div>';
+}
+
+let markers = [], polylines = [], circleOverlays = [];
+let locMarker = null, locCircle = null;
+const emojis = { food:'🍽️', spot:'📍', hotel:'🏨', transport:'🚃', drink:'🍺' };
+
+function iconHtml(color, emoji) {
+  return `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.18)">${emoji||''}</div>`;
+}
+function dotHtml(color) {
+  return `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div>`;
+}
+
+function clearMap() {
+  markers.forEach(m => m.setMap(null));
+  polylines.forEach(p => p.setMap(null));
+  circleOverlays.forEach(c => c.setMap(null));
+  markers = []; polylines = []; circleOverlays = [];
+}
+
+function initMap() {
+  try {
+    const center = HOTEL.lat ? gpos(HOTEL) : gposLL(39.90, 116.40);
+    map = new AMap.Map('map', { zoom: 11, center: center, resizeEnable: true });
+    try { map.addControl(new AMap.ToolBar({ position: 'RT' })); } catch(e) {}
+    if (HOTEL.lat) {
+      const hm = new AMap.Marker({ position: gpos(HOTEL), content: iconHtml('#ff9500','🏨'), offset: new AMap.Pixel(-14,-14), zIndex: 200, map: map });
+      const iw = new AMap.InfoWindow({ content: `<b>${HOTEL.name}</b>`, offset: new AMap.Pixel(0,-18) });
+      hm.on('click', () => iw.open(map, hm.getPosition()));
+    }
+    mapReady = true;
+    go(0);
+  } catch (e) {
+    showMapFail();
+    console.error(e);
+  }
+}
+
+function showDay(idx) {
+  if (!mapReady) return;
+  clearMap();
+  if (idx === 0) {
+    const pts = [];
+    DAYS.forEach(d => d.locations.forEach(l => { if (l.lat) pts.push(gposLL(l.lat, l.lng)); }));
+    DAYS.slice(1).forEach(d => {
+      d.locations.filter(l => l.time !== '—').forEach(l => {
+        const p = gposLL(l.lat, l.lng);
+        const m = new AMap.Marker({ position: p, content: dotHtml(d.color), offset: new AMap.Pixel(-5,-5), map: map });
+        const iw = new AMap.InfoWindow({ content: `<b>${l.name}</b><br><span style="color:#86868b">${d.label}</span>`, offset: new AMap.Pixel(0,-10) });
+        m.on('click', () => iw.open(map, m.getPosition()));
+        markers.push(m);
+      });
+    });
+    if (pts.length) { try { map.setFitView(null, false, [30,30,30,30]); } catch(e) { if(pts.length) map.setCenter(pts[0]); } }
+    return;
+  }
+  const day = DAYS.find(d => d.id === idx);
+  if (!day) return;
+  const coords = [];
+  day.locations.forEach((l, li) => {
+    if (!l.lat) return;
+    const p = gposLL(l.lat, l.lng);
+    const m = new AMap.Marker({ position: p, content: iconHtml(day.color, emojis[l.type]||'📌'), offset: new AMap.Pixel(-14,-14), map: map, draggable: editMode, cursor: editMode ? 'move' : 'pointer' });
+    if (editMode) {
+      m.on('dragend', () => {
+        const np = m.getPosition();
+        const [wlng, wlat] = gcj02ToWgs84(np.getLng(), np.getLat());
+        updateLocPos(day.id, li, wlat, wlng);
+      });
+    } else {
+      const safeName = l.name.replace(/'/g, "\\'");
+      const html = `<b>${l.name}</b>${l.time!=='—'?'<br><span style="color:#86868b">'+l.time+'</span>':''}<br>${l.desc}${l.budget?'<br><span style="color:#ff9500">'+l.budget+'</span>':''}<br><a href="#" onclick="event.preventDefault();openAS('${safeName}',${l.lat},${l.lng})">📍 导航</a>`;
+      const iw = new AMap.InfoWindow({ content: html, offset: new AMap.Pixel(0,-18) });
+      m.on('click', () => iw.open(map, m.getPosition()));
+    }
+    markers.push(m);
+    if (l.time !== '—') coords.push(p);
+  });
+  if (coords.length > 1) {
+    const pl = new AMap.Polyline({ path: coords, strokeColor: day.color, strokeWeight: 2.5, strokeOpacity: .5, strokeStyle: 'dashed', map: map });
+    polylines.push(pl);
+  }
+  if (coords.length) { try { map.setFitView(markers, false, [40,40,40,40]); } catch(e) { map.setCenter(coords[0]); } }
+}
+
+/* ── 我的位置 ── */
+document.getElementById('locateBtn').addEventListener('click', function() {
+  if (!mapReady || !navigator.geolocation) return;
+  this.classList.add('active');
+  navigator.geolocation.getCurrentPosition(posData => {
+    const { latitude, longitude, accuracy } = posData.coords;
+    const ll = gposLL(latitude, longitude);
+    if (locMarker) {
+      locMarker.setPosition(ll);
+      locCircle.setCenter(ll); locCircle.setRadius(Math.max(accuracy/2, 20));
+    } else {
+      locMarker = new AMap.Marker({
+        position: ll,
+        content: '<div style="width:14px;height:14px;border-radius:50%;background:#007aff;border:2.5px solid #fff;box-shadow:0 0 6px rgba(0,122,255,.5)"></div>',
+        offset: new AMap.Pixel(-7,-7), zIndex: 300, map: map
+      });
+      locCircle = new AMap.Circle({ center: ll, radius: Math.max(accuracy/2, 20), strokeColor:'#007aff', strokeWeight:1, fillColor:'#007aff', fillOpacity:.08, map: map });
+    }
+    map.setZoomAndCenter(15, ll);
+  }, () => {}, { enableHighAccuracy: true, timeout: 10000 });
+});
+
+// ══════════ RENDER (卡片 / 时间轴) ══════════
+function payChips(pay) {
+  if (!pay) return '';
+  let h = '<div class="pays">';
+  const m = { cash:'💴', card:'💳', alipay:'支付宝', wechat:'微信' };
+  for (const [k,label] of Object.entries(m)) {
+    if (pay[k] !== undefined) { const c = pay[k]===1?'ok':pay[k]===0.5?'idk':'no'; h += `<span class="pay ${c}">${label}</span>`; }
+  }
+  return h + '</div>';
+}
+
+const IN_APP_WEBVIEW = (() => {
+  const ua = (navigator.userAgent || '').toLowerCase();
+  return /micromessenger|xhs|xhsdiscover|discover\/|tiktok|aweme|weibo|qq\/|qqbrowser|alipayclient|dingtalk|lark|feishu|ucbrowser|baiduboxapp|toutiao|newsarticle/.test(ua);
+})();
+function xhsKeyword(loc) {
+  if (loc.xhsKeyword) return loc.xhsKeyword.trim();
+  return (loc.name||'').replace(/⭐.*$/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+function xhsAppUrl(loc) { return `xhsdiscover://search/result?keyword=${encodeURIComponent(xhsKeyword(loc))}&target_search=notes&source=deeplink`; }
+function xhsWebUrl(loc) { return `https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(xhsKeyword(loc))}&source=web_explore_feed`; }
+function dpKeyword(loc) {
+  if (loc.dianpingKeyword) return loc.dianpingKeyword.trim();
+  return (loc.name||'').replace(/⭐.*$/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+function dpAppUrl(loc) { return `dianping://searchshoplist?keyword=${encodeURIComponent(dpKeyword(loc))}`; }
+function dpWebUrl(loc) { return `https://m.dianping.com/searchshop?keyword=${encodeURIComponent(dpKeyword(loc))}`; }
+
+function openExt(dayIdx, locIdx, kind) {
+  const day = DAYS.find(d => d.id === dayIdx); if (!day) return false;
+  const loc = day.locations[locIdx]; if (!loc) return false;
+  if (IN_APP_WEBVIEW) { window.location.href = kind==='dp' ? dpWebUrl(loc) : xhsWebUrl(loc); }
+  else { window.location.href = kind==='dp' ? dpAppUrl(loc) : xhsAppUrl(loc); }
+  return false;
+}
+function openXhs(dayIdx, locIdx) { return openExt(dayIdx, locIdx, 'xhs'); }
+function openDp(dayIdx, locIdx) { return openExt(dayIdx, locIdx, 'dp'); }
+
+function escAttr(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function escHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function locCard(loc, dayIdx, locIdx) {
+  const dot = loc.type==='food'?'food':loc.type==='spot'?'spot':loc.type==='drink'?'drink':loc.type==='hotel'?'hotel':'transport';
+  const bdg = loc.type==='food'?'<span class="badge food">餐</span>':loc.type==='spot'?'<span class="badge spot">景</span>':loc.type==='hotel'?'<span class="badge hotel">住</span>':'';
+  const uid = `d${dayIdx}-${locIdx}`;
+  let lnk = `<button class="btn nav" onclick="openAS('${loc.name.replace(/'/g,"\\'")}',${loc.lat},${loc.lng})">📍 导航</button>`;
+  if (loc.xhs || loc.xhsKeyword) {
+    const xhsHref = IN_APP_WEBVIEW ? xhsWebUrl(loc) : xhsAppUrl(loc);
+    const xhsLabel = IN_APP_WEBVIEW ? '📕 小红书' : '📕 小红书 App';
+    lnk += `<a href="${xhsHref}" onclick="return openXhs(${dayIdx},${locIdx})" class="btn xhs">${xhsLabel}</a>`;
+  }
+  const dpEnabled = loc.dianping !== false && (loc.dianping || loc.dianpingKeyword || loc.type==='food' || loc.type==='drink');
+  if (dpEnabled) {
+    const dpHref = IN_APP_WEBVIEW ? dpWebUrl(loc) : dpAppUrl(loc);
+    const dpLabel = IN_APP_WEBVIEW ? '🍜 大众点评' : '🍜 大众点评 App';
+    lnk += `<a href="${dpHref}" onclick="return openDp(${dayIdx},${locIdx})" class="btn dp">${dpLabel}</a>`;
+  }
+  if (loc.reserve) lnk += `<a href="${loc.reserve}" target="_blank" class="btn rsv">📅 预约</a>`;
+  return `<div class="tl-item"><div class="tl-dot ${dot}"></div><div class="card" onclick="if(!event.target.closest('.btn,.links'))toggle('${uid}')"><div class="time">${loc.time!=='—'?loc.time:'备选'}</div><div class="name">${bdg} ${loc.name}</div><div class="desc">${loc.desc}</div>${loc.budget?'<div class="budget">'+loc.budget+'</div>':''}<div class="links">${lnk}</div>${loc.detail?'<div class="details" id="'+uid+'">'+loc.detail.replace(/\n/g,'<br>')+'</div>':''}</div></div>`;
+}
+
+function locCardEdit(loc, dayIdx, locIdx) {
+  const dot = loc.type==='food'?'food':loc.type==='spot'?'spot':loc.type==='drink'?'drink':loc.type==='hotel'?'hotel':'transport';
+  return `<div class="tl-item"><div class="tl-dot ${dot}"></div><div class="card edit-card">
+    <div class="ed-row2">
+      <input class="ed-input" style="max-width:90px" value="${escAttr(loc.time)}" placeholder="时间/—" onchange="updateLoc(${dayIdx},${locIdx},'time',this.value)">
+      <select class="ed-input" style="max-width:100px" onchange="updateLoc(${dayIdx},${locIdx},'type',this.value)">
+        <option value="spot" ${loc.type==='spot'?'selected':''}>📍景点</option>
+        <option value="food" ${loc.type==='food'?'selected':''}>🍽️餐厅</option>
+        <option value="hotel" ${loc.type==='hotel'?'selected':''}>🏨住宿</option>
+        <option value="drink" ${loc.type==='drink'?'selected':''}>🍺饮品</option>
+      </select>
+    </div>
+    <div class="edit-row"><input class="ed-input" value="${escAttr(loc.name)}" placeholder="名称" onchange="updateLoc(${dayIdx},${locIdx},'name',this.value)"></div>
+    <div class="edit-row"><textarea class="ed-input" placeholder="描述" onchange="updateLoc(${dayIdx},${locIdx},'desc',this.value)">${escHtml(loc.desc||'')}</textarea></div>
+    <div class="edit-row"><input class="ed-input" value="${escAttr(loc.budget||'')}" placeholder="预算，如 ¥100/人" onchange="updateLoc(${dayIdx},${locIdx},'budget',this.value)"></div>
+    <div class="edit-hint">💡 想换地方：直接拖动地图上对应这张卡片的图钉</div>
+    <button class="btn del" onclick="deleteLoc(${dayIdx},${locIdx})">🗑 删除这个地点</button>
+  </div></div>`;
+}
+
+function renderDay(idx) {
+  const d = DAYS.find(x => x.id === idx); if (!d) return '';
+  let h = `<div class="day-head"><h2>${d.title}</h2><p>${d.date}</p></div>`;
+  const mainIdx = [], altIdx = [];
+  d.locations.forEach((l,i) => (l.time!=='—' ? mainIdx : altIdx).push(i));
+  if (mainIdx.length) { h += '<div class="section-head">行程</div><div class="timeline">'; mainIdx.forEach(i => h += locCard(d.locations[i], idx, i)); h += '</div>'; }
+  if (altIdx.length) { h += '<div class="section-head">备选</div><div class="timeline">'; altIdx.forEach(i => h += locCard(d.locations[i], idx, i)); h += '</div>'; }
+  return h;
+}
+
+function renderDayEdit(idx) {
+  const d = DAYS.find(x => x.id === idx); if (!d) return '';
+  let h = `<div class="day-head edit-day-head">
+    <input class="ed-input" value="${escAttr(d.title||'')}" placeholder="这天的主题" onchange="updateDay(${idx},'title',this.value)">
+    <input class="ed-input" value="${escAttr(d.date||'')}" placeholder="日期说明，如 7月8日 周三" onchange="updateDay(${idx},'date',this.value)">
+  </div>`;
+  h += '<div class="edit-banner">✏️ 编辑模式开启中。改完时间/预算/描述，点别处自动保存；拖地图上的图钉能挪地方。这些修改只存在这台设备里，记得在「总览」页底部导出文件发给对象。</div>';
+  h += '<div class="section-head">这天的地点（按顺序）</div><div class="timeline">';
+  d.locations.forEach((l, li) => h += locCardEdit(l, idx, li));
+  h += '</div>';
+  h += `<button class="btn add-loc" onclick="addLoc(${idx})">＋ 添加新地点</button>`;
+  return h;
+}
+
+// ══════════ NAV ══════════
+let cur = 0;
+const tabsEl = document.getElementById('tabs');
+const contentEl = document.getElementById('content');
+
+function buildTabs() {
+  tabsEl.innerHTML = '';
+  DAYS.forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (d.id===cur?' active':'');
+    btn.dataset.day = d.id;
+    btn.textContent = d.label;
+    tabsEl.appendChild(btn);
+  });
+  const editBtn = document.createElement('button');
+  editBtn.className = 'tab edit-toggle' + (editMode?' active':'');
+  editBtn.id = 'editBtn';
+  editBtn.textContent = editMode ? '✅ 完成编辑' : '✏️ 编辑';
+  editBtn.onclick = toggleEdit;
+  tabsEl.appendChild(editBtn);
+}
+buildTabs();
+
+function go(idx) {
+  cur = idx;
+  tabsEl.querySelectorAll('.tab').forEach(t => { if (t.dataset.day !== undefined) t.classList.toggle('active', +t.dataset.day===idx); });
+  contentEl.innerHTML = idx===0 ? overviewContent() : (editMode ? renderDayEdit(idx) : renderDay(idx));
+  showDay(idx);
+  contentEl.scrollTo({top:0});
+  const tab = tabsEl.querySelector(`[data-day="${idx}"]`);
+  if (tab) tab.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+}
+// 编辑数据变化后用这个：不跳回顶部、不改 tab 高亮，只刷新当前页内容和地图
+function rerenderCurrent() {
+  const st = contentEl.scrollTop;
+  contentEl.innerHTML = cur===0 ? overviewContent() : (editMode ? renderDayEdit(cur) : renderDay(cur));
+  showDay(cur);
+  contentEl.scrollTop = st;
+}
+function toggleEdit() {
+  editMode = !editMode;
+  buildTabs();
+  rerenderCurrent();
+}
+function toggle(id) { const el=document.getElementById(id); if (el) el.classList.toggle('closed'); }
+tabsEl.addEventListener('click', e => { const t=e.target.closest('.tab'); if (t && t.id!=='editBtn' && t.dataset.day!==undefined) go(+t.dataset.day); });
+// 先渲染一次内容区（地图还没加载完时文字先出来）
+contentEl.innerHTML = overviewContent();
+
+// ══════════ 数据增删改 ══════════
+function updateLoc(dayIdx, locIdx, field, value) {
+  const day = DAYS.find(d => d.id === dayIdx); if (!day) return;
+  const loc = day.locations[locIdx]; if (!loc) return;
+  loc[field] = value;
+  saveData();
+  rerenderCurrent();
+}
+function updateLocPos(dayIdx, locIdx, lat, lng) {
+  const day = DAYS.find(d => d.id === dayIdx); if (!day) return;
+  const loc = day.locations[locIdx]; if (!loc) return;
+  loc.lat = lat; loc.lng = lng;
+  saveData();
+  rerenderCurrent();
+}
+function deleteLoc(dayIdx, locIdx) {
+  const day = DAYS.find(d => d.id === dayIdx); if (!day) return;
+  if (!confirm('确定删除这个地点吗？')) return;
+  day.locations.splice(locIdx, 1);
+  saveData();
+  rerenderCurrent();
+}
+function addLoc(dayIdx) {
+  const day = DAYS.find(d => d.id === dayIdx); if (!day) return;
+  const base = day.locations[0] || HOTEL;
+  day.locations.push({ name: '新地点', lat: base.lat, lng: base.lng, type: 'spot', time: '—', desc: '点这里改描述' });
+  saveData();
+  rerenderCurrent();
+}
+function updateDay(dayIdx, field, value) {
+  const day = DAYS.find(d => d.id === dayIdx); if (!day) return;
+  day[field] = value;
+  saveData();
+  if (field === 'label') buildTabs();
+  rerenderCurrent();
+}
+function exportData() {
+  const blob = new Blob([JSON.stringify(DAYS, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'beijing-trip-data.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importData(evt) {
+  const file = evt.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!Array.isArray(parsed) || !parsed.length) throw new Error('格式不对');
+      DAYS = parsed;
+      saveData();
+      cur = 0;
+      buildTabs();
+      go(0);
+      alert('导入成功！');
+    } catch (e) {
+      alert('这个文件读不懂，确认一下是不是之前导出的那个 json 文件。');
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+function resetData() {
+  if (!confirm('确定要恢复成最初的默认行程吗？你在这台设备上改过的内容会被清空。')) return;
+  DAYS = cloneDefault();
+  saveData();
+  cur = 0;
+  buildTabs();
+  go(0);
+}
+
+/* ── Action Sheet for Navigation ── */
+const asOverlay = document.createElement('div');
+asOverlay.className = 'as-overlay';
+asOverlay.innerHTML = `<div class="as-sheet">
+  <div class="as-group" id="as-opts"></div>
+  <div class="as-group"><button class="as-item as-cancel" onclick="closeAS()">取消</button></div>
+</div>`;
+document.body.appendChild(asOverlay);
+asOverlay.addEventListener('click', e => { if (e.target === asOverlay) closeAS(); });
+
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+function amapAppUrl(name, lat, lng) {
+  const [glng, glat] = gposLL(lat, lng);
+  const scheme = IS_IOS ? 'iosamap' : 'androidamap';
+  return `${scheme}://viewMap?sourceApplication=trip&poiname=${encodeURIComponent(name)}&lat=${glat}&lon=${glng}&dev=0`;
+}
+function amapWebUrl(name, lat, lng) {
+  const [glng, glat] = gposLL(lat, lng);
+  return `https://uri.amap.com/marker?position=${glng},${glat}&name=${encodeURIComponent(name)}&src=trip&coordinate=gaode&callnative=1`;
+}
+function openAmap(name, lat, lng) {
+  if (IN_APP_WEBVIEW) { window.open(amapWebUrl(name, lat, lng)); return; }
+  window.location.href = amapAppUrl(name, lat, lng);
+}
+function openAS(name, lat, lng) {
+  const q = encodeURIComponent(name + ' Beijing');
+  const encName = encodeURIComponent(name);
+  const safeName = name.replace(/'/g,"\\'");
+  const appleUrl = IN_APP_WEBVIEW
+    ? `https://maps.apple.com/?q=${lat},${lng}&ll=${lat},${lng}&name=${encName}`
+    : `maps://maps.apple.com/?q=${lat},${lng}&name=${encName}`;
+  const googleUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+  document.getElementById('as-opts').innerHTML =
+    `<button class="as-item" onclick="openAmap('${safeName}',${lat},${lng});closeAS()">🧭 高德地图 App</button>` +
+    `<button class="as-item" onclick="window.open('${appleUrl}');closeAS()">🍎 Apple Maps</button>` +
+    `<button class="as-item" onclick="window.open('${googleUrl}');closeAS()">🗺️ Google Maps</button>`;
+  asOverlay.classList.add('show');
+}
+function closeAS() { asOverlay.classList.remove('show'); }
+
+// 启动：加载高德地图 JS SDK
+loadAMapScript(initMap);
+</script>
+</body>
+</html>
