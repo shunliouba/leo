@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>北京行程 · 可编辑地图</title>
+<meta name="description" content="两个人的北京行程地图 · 可直接编辑 · 高德地图">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="北京行程">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23ff3b30'/%3E%3Ctext x='50' y='66' font-size='52' text-anchor='middle' fill='white' font-family='-apple-system,sans-serif'%3E京%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --bg-grouped: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary: #aeaeb2;
+  --accent: #0071e3;
+  --tint-red: #ff3b30;
+  --tint-orange: #ff9500;
+  --tint-green: #34c759;
+  --tint-blue: #007aff;
+  --tint-purple: #af52de;
+  --separator: rgba(60, 60, 67, .12);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.08);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overscroll-behavior: none; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.47; letter-spacing: -0.01em;
+}
+a { color: var(--accent); text-decoration: none; }
+
+/* ── App shell: 上下分栏(手机) / 左右分栏(宽屏) ── */
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+.map-pane { position: relative; flex: 0 0 38vh; min-height: 110px; background: #e7e7ea; }
+.map-pane.collapsed { flex-basis: 0 !important; min-height: 0; overflow: hidden; }
+#map { position: absolute; inset: 0; }
+.locate-btn {
+  position: absolute; right: 10px; bottom: 18px; z-index: 110;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border: none; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.amap-fail {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 8px; padding: 24px; text-align: center; background: var(--bg-grouped);
+  font-size: 13px; color: var(--text-secondary); z-index: 50;
+}
+.amap-fail b { color: var(--text-primary); font-size: 15px; }
+
+.resize-handle {
+  position: absolute; left: 0; right: 0; bottom: -8px; height: 16px;
+  cursor: row-resize; z-index: 130; touch-action: none;
+}
+.resize-handle::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: 36px; height: 4px; border-radius: 3px; background: rgba(0,0,0,.2);
+}
+
+.side-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--bg-secondary); }
+.toolbar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: .5px solid var(--separator); background: var(--bg-primary); }
+.toolbar-title { font-size: 14px; font-weight: 700; white-space: nowrap; }
+.map-toggle-btn { padding: 6px 12px; border-radius: 980px; border: none; background: var(--bg-grouped); color: var(--text-secondary); font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+.tabs {
+  flex: 0 0 auto; display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: var(--bg-primary); border-bottom: .5px solid var(--separator); scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: 7px 16px; border-radius: 980px; border: none;
+  background: var(--bg-grouped); color: var(--text-secondary);
+  font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.tab.active { background: var(--accent); color: #fff; }
+
+.content { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(28px + var(--safe-bottom)); }
+
+@media (min-width: 880px) {
+  .app { flex-direction: row; }
+  .map-pane { flex: 1 1 auto; flex-basis: auto !important; height: 100%; }
+  .map-pane.collapsed { flex: 0 0 0 !important; }
+  .resize-handle { left: -8px; right: auto; top: 0; bottom: 0; width: 16px; height: auto; cursor: col-resize; }
+  .resize-handle::after { width: 4px; height: 36px; }
+  .side-pane { order: -1; flex: 0 0 420px; height: 100%; border-right: .5px solid var(--separator); }
+}
+
+/* ── Overview ── */
+.hero { text-align: center; padding: 20px 8px 18px; }
+.hero h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.hero .subtitle { font-size: 15px; color: var(--text-secondary); margin-top: 4px; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.info-card { background: var(--bg-elevated); border-radius: var(--radius-lg); padding: 12px 14px; box-shadow: var(--shadow-sm); }
+.info-card .label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 4px; }
+.info-card .value { font-size: 14px; font-weight: 600; }
+
+.section-head { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; padding: 18px 0 8px; }
+
+.day-head { padding: 4px 0 12px; }
+.dh-row1 { display: flex; align-items: center; gap: 8px; }
+.dh-badge { flex: 0 0 auto; padding: 3px 10px; border-radius: 980px; color: #fff; font-size: 12px; font-weight: 700; }
+.day-head p { font-size: 13.5px; color: var(--text-secondary); margin-top: 4px; }
+.dh-row2 { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.f-day-date { width: auto; flex: 0 0 auto; font-size: 12.5px; color: var(--text-secondary); }
+.dh-meta { font-size: 13px; color: var(--text-secondary); }
+.prev-eta { font-size: 11.5px; color: var(--accent); font-weight: 600; margin: -2px 0 4px; min-height: 14px; }
+
+/* 地图调暗滑钮（只压暗底图，图钉不受影响——靠一层在图钉下面、瓦片上面的半透明黑色遮罩实现） */
+.map-dim-overlay { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 15; }
+.map-dim-control {
+  position: absolute; left: 10px; bottom: 18px; z-index: 110;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px); border-radius: 8px;
+  padding: 4px 10px; box-shadow: 0 1px 4px rgba(0,0,0,.18); display: flex; align-items: center; gap: 4px;
+}
+.map-dim-control span { font-size: 13px; }
+.map-dim-control input[type=range] { width: 76px; height: 18px; }
+
+/* 拖拽占位符：拖动同一容器内排序时，提示"松手会插到这里" */
+.drag-placeholder { border: 2px dashed var(--accent); border-radius: var(--radius-md); margin-bottom: 10px; background: rgba(0,113,227,.06); }
+.tl-item.dragging, .day-card.dragging { box-shadow: 0 10px 28px rgba(0,0,0,.28); }
+.tab.drop-target { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.timeline { position: relative; padding-left: 22px; }
+.timeline::before { content: ''; position: absolute; left: 6px; top: 18px; bottom: 18px; width: 1.5px; background: var(--separator); }
+.tl-item { position: relative; margin-bottom: 10px; }
+.tl-dot { position: absolute; left: -19px; top: 16px; width: 10px; height: 10px; border-radius: 50%; z-index: 1; box-shadow: 0 0 0 3px var(--bg-secondary); }
+.tl-dot.food { background: var(--tint-red); }
+.tl-dot.spot { background: var(--tint-blue); }
+.tl-dot.hotel { background: var(--tint-orange); }
+.tl-dot.drink { background: var(--tint-purple); }
+
+.card { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); }
+
+/* ── 点哪改哪：所有字段长得像普通文字，点/focus 才显出输入框感 ── */
+.f-input {
+  border: 1px solid transparent; background: transparent; width: 100%;
+  font: inherit; color: inherit; padding: 4px 6px; border-radius: 7px;
+  transition: background .15s, border-color .15s; -webkit-appearance: none;
+}
+.f-input:hover { background: var(--bg-grouped); }
+.f-input:focus { background: var(--bg-grouped); border-color: var(--accent); outline: none; }
+textarea.f-input { min-height: 44px; resize: vertical; line-height: 1.5; font-family: inherit; }
+.row-top { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; flex-wrap: wrap; }
+.row-top .f-time { width: 96px; flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+.row-top .f-type { flex: 0 0 auto; width: auto; font-size: 12px; color: var(--text-secondary); }
+.f-name { font-size: 16.5px; font-weight: 600; }
+.addr-row { display: flex; gap: 6px; align-items: center; margin: 2px 0 4px; }
+.addr-row .f-addr { font-size: 12.5px; color: var(--text-tertiary); }
+.search-dropdown {
+  display: none; flex-direction: column; margin: -2px 0 8px; border: 1px solid var(--separator);
+  border-radius: 10px; overflow: hidden; max-height: 260px; overflow-y: auto; background: var(--bg-grouped);
+}
+.search-dropdown.show { display: flex; }
+.search-dropdown .sr-item { padding: 9px 12px; cursor: pointer; border-bottom: .5px solid var(--separator); display: flex; flex-direction: column; gap: 1px; }
+.search-dropdown .sr-item:last-child { border-bottom: none; }
+.search-dropdown .sr-item:active { background: rgba(0,0,0,.05); }
+.search-dropdown .sr-loading { color: var(--text-secondary); font-size: 12.5px; cursor: default; }
+.search-dropdown .sr-name { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.search-dropdown .sr-addr { font-size: 11.5px; color: var(--text-secondary); }
+.search-dropdown .sr-eta { font-size: 11px; color: var(--accent); font-weight: 600; margin-top: 1px; }
+.f-desc { font-size: 14px; color: var(--text-secondary); }
+.f-budget { font-size: 12px; color: var(--text-secondary); max-width: 220px; }
+.f-detail { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.f-daytitle { font-size: 19px; font-weight: 700; }
+.f-moveday { flex: 0 0 auto; width: auto; max-width: 92px; font-size: 11px; color: var(--text-tertiary); }
+.mini-btn {
+  padding: 6px 10px; border-radius: 8px; border: none; background: var(--bg-grouped);
+  color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.del-day { margin-top: 10px; }
+.drag-handle {
+  flex: 0 0 auto; padding: 4px 6px; color: var(--text-tertiary); font-size: 16px; line-height: 1;
+  cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.step-btn { flex: 0 0 auto; padding: 4px 6px; font-size: 11px; }
+.tl-item.dragging { opacity: .45; }
+.tl-item.dragging .card { box-shadow: var(--shadow-md); }
+.tl-item.drop-target .card { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.day-card.dragging { opacity: .45; box-shadow: var(--shadow-md); }
+.day-card.drop-target { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.as-search-item { flex-direction: column !important; align-items: flex-start !important; gap: 2px; padding: 12px 16px !important; }
+.as-search-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.as-search-addr { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+
+/* Links row */
+.links { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 8px 13px; border-radius: var(--radius-sm);
+  font-size: 12.5px; font-weight: 600; border: none; cursor: pointer;
+  text-decoration: none !important;
+}
+.btn.nav { background: var(--accent); color: #fff; }
+.btn.xhs { background: #ff2442; color: #fff; }
+.btn.dp { background: #ffa700; color: #fff; }
+.btn.rsv { background: var(--tint-green); color: #fff; }
+.btn.del { background: transparent; color: var(--tint-red); padding: 8px; font-size: 16px; margin-left: auto; }
+.btn.add-loc { display: block; width: 100%; text-align: center; background: var(--bg-grouped); color: var(--text-secondary); border: 1.5px dashed var(--text-tertiary); padding: 13px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; margin-top: 8px; cursor: pointer; }
+
+/* Action Sheet */
+.as-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+.as-overlay.show { opacity: 1; pointer-events: auto; }
+.as-sheet { width: 100%; max-width: 420px; padding: 0 8px 34px; transform: translateY(100%); transition: transform .3s cubic-bezier(.22,1,.36,1); }
+.as-overlay.show .as-sheet { transform: translateY(0); }
+.as-group { background: rgba(255,255,255,.9); backdrop-filter: blur(20px); border-radius: 14px; overflow: hidden; margin-bottom: 8px; }
+.as-group .as-item { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; font-size: 18px; color: #007aff; font-weight: 500; border: none; background: none; width: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.as-group .as-item + .as-item { border-top: .5px solid rgba(0,0,0,.12); }
+.as-cancel { font-weight: 600; }
+
+.day-list .card { margin-bottom: 8px; cursor: pointer; }
+.day-list .name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.day-list .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.day-list .desc { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+.pay-summary { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-sm); font-size: 12.5px; line-height: 1.7; margin-bottom: 10px; }
+.pay-summary table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.pay-summary td { padding: 5px 0; border-top: .5px solid var(--separator); vertical-align: top; }
+.pay-summary td:first-child { font-weight: 600; white-space: nowrap; padding-right: 10px; }
+.warn { color: var(--tint-red); }
+
+.legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 6px 0; font-size: 12px; color: var(--text-secondary); }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.io-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.io-row button, .io-row label {
+  flex: 1; min-width: 110px; text-align: center; padding: 10px 6px; border-radius: var(--radius-md);
+  background: var(--bg-elevated); box-shadow: var(--shadow-sm); font-size: 12.5px; font-weight: 600;
+  cursor: pointer; color: var(--text-primary); border: none; display: block;
+}
+
+.amap-info-content { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif !important; font-size: 13px !important; line-height: 1.6 !important; }
+.amap-info-content a { color: var(--accent) !important; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="map-pane" id="mapPane">
+    <div id="map"></div>
+    <div class="map-dim-overlay" id="mapDimOverlay"></div>
+    <button class="locate-btn" id="locateBtn" title="我的位置">📍</button>
+    <div class="map-dim-control" title="调节地图底图亮度，不影响图钉">
+      <span>🔅</span>
+      <input type="range" id="mapDimSlider" min="0" max="70" value="0" oninput="setMapDim(this.value)">
+      <span>🔆</span>
+    </div>
+    <div class="resize-handle" id="resizeHandle"></div>
+  </div>
+  <div class="side-pane" id="sidePane">
+    <div class="toolbar">
+      <span class="toolbar-title">🗺️ 北京行程</span>
+      <button class="map-toggle-btn" id="mapToggleBtn" onclick="toggleMapPane()">收起地图</button>
+      <button class="map-toggle-btn" onclick="hardReset()" title="清空本地缓存并重新加载，遇到任何问题都可以点这个">🔧 重置</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script>
+// ── 安全网：任何地方报错都会在屏幕下方弹一条红条，方便截图反馈；
+//    并提供一个"无论发生什么都能点"的重置按钮（清空本地缓存+刷新）。
+window.addEventListener('error', function(e) {
+  try {
+    if (document.getElementById('__errBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = '__errBanner';
+    banner.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#ff3b30;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;line-height:1.5;box-shadow:0 4px 14px rgba(0,0,0,.3);font-family:-apple-system,sans-serif;';
+    banner.textContent = '页面出错了：' + (e && e.message ? e.message : '未知错误') + '（把这条截图发给我）';
+    document.body.appendChild(banner);
+  } catch (err) {}
+});
+function hardReset() {
+  if (!confirm('清空这台设备上保存的所有修改和布局设置，重新开始？')) return;
+  try { localStorage.removeItem('bjtrip-data-v4'); } catch (e) {}
+  try { localStorage.removeItem('bjtrip-layout-v2'); } catch (e) {}
+  location.reload();
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  高德 Key（在 lbs.amap.com 申请，类型「Web端(JS API)」）       ║
+// ╚══════════════════════════════════════════════════════════════╝
+const AMAP_KEY = '5adf8f0822d8964560c281768e1b8839';
+const AMAP_SECRET = '26a427f1ffefc339f421bf7c4d21d8ee';
+
+const HOTEL = { name: '亚朵轻居酒店(三元桥店)', lat: 39.9658, lng: 116.4564 };
+
+// ── 出厂默认数据：每个地点带真实日期 (YYYY-MM-DD) ──
+const DEFAULT_TRIP = { start: '2026-07-07', end: '2026-07-13' };
+const DEFAULT_DAY_TITLES = {
+  '2026-07-07': '抵京 · 与对象碰头',
+  '2026-07-08': '故宫 · 天安门 · 人民大会堂',
+  '2026-07-09': '西北郊：颐和园 · 圆明园 · 清华北大',
+  '2026-07-10': '什刹海 · 南锣北锣 · 东四',
+  '2026-07-11': '动物园 · 海洋馆 · 三里屯合生汇SKP',
+  '2026-07-12': '军事博物馆 → 转场环球影城',
+  '2026-07-13': '环球影城整天'
+};
+const DEFAULT_LOCS = [
+  { id:'loc1', date:'2026-07-07', time:'15:00', name:'亚朵轻居酒店(三元桥店)', addr:'', lat:39.9658, lng:116.4564, type:'hotel',
+    desc:'办理入住，放下行李，简单休整。主要住这家，离对象家（新源里）很近。',
+    detail:'同区域备选住宿：北京希尔顿酒店（在对象家附近，待定，可以中途换过去住两天）；如果决定换酒店，记得提前在订房 App 上锁好房，旺季周末房源会紧张。' },
+  { id:'loc2', date:'2026-07-07', time:'17:30', name:'新源里 · 与对象碰头', addr:'', lat:39.9430, lng:116.4550, type:'spot',
+    desc:'到对象家附近碰头，这天不安排紧凑行程，留时间倒时差、聊聊接下来一周怎么走。' },
+  { id:'loc3', date:'2026-07-07', time:'19:30', name:'簋街 · 接风饭', addr:'簋街', lat:39.9420, lng:116.4210, type:'food',
+    desc:'簋街整条街都是吃小龙虾、烤鱼的地方，第一晚接风饭安排在这。胡大酒楼是老牌选择，人多需要排号，建议提前到或用大众点评小程序排队。',
+    budget:'¥150-200/人', dianpingKeyword:'胡大酒楼簋街' },
+  { id:'loc4', date:'2026-07-07', time:'', name:'湘水（备选辣口味）', addr:'', lat:39.9425, lng:116.4225, type:'food',
+    desc:'笔记上写的另一个候选，如果胡大排队太久可以试试这家，具体店名建议到了让对象再确认一下大众点评评分。', dianpingKeyword:'簋街 小龙虾' },
+
+  { id:'loc5', date:'2026-07-08', time:'08:30', name:'天安门广场', addr:'天安门广场', lat:39.9054, lng:116.3976, type:'spot',
+    desc:'建议从天安门东地铁站 B/D 口出来，先安检进广场。如果想看升旗仪式要单独约「升旗」时段，且要起得很早，跟这条线路冲突，这次先不强求。',
+    detail:'预约提醒：广场需提前 1-7 天在「天安门广场预约参观」小程序约，每日中午12点放出新一批可约名额；如果已约了人民大会堂或毛主席纪念堂，可以直接凭预约记录进广场，不需要再单独约广场。' },
+  { id:'loc6', date:'2026-07-08', time:'09:30', name:'故宫博物院', addr:'北京市东城区景山前街4号', lat:39.9163, lng:116.3972, type:'spot',
+    desc:'从午门进，建议留 3 小时以上，自南向北单向参观，出口在神武门或东华门，出来正好接景山公园拍故宫全景（备选）。',
+    budget:'旺季60元/人（4-10月）', dianpingKeyword:'故宫博物院',
+    detail:'⚠️ 预约提醒：不售当日票，必须提前 7 天 20:00 在「故宫博物院」小程序约，每个身份证每天限约1张；每周一闭馆（法定节假日除外）。务必用真实身份证信息预约，现场刷身份证+人脸核验入院。' },
+  { id:'loc7', date:'2026-07-08', time:'13:30', name:'人民大会堂', addr:'', lat:39.9059, lng:116.3883, type:'spot',
+    desc:'故宫出来打车或步行到人民大会堂，下午看万人大礼堂、宴会厅，整体参观大概1小时左右。',
+    detail:'预约提醒：提前 1-3 天在「人民大会堂参观预约」小程序约，不售当日票不设现场票；不能带包入场（南门东侧可寄存），记得带身份证。' },
+  { id:'loc8', date:'2026-07-08', time:'', name:'王府井小吃街（备选）', addr:'王府井', lat:39.9139, lng:116.4108, type:'spot',
+    desc:'如果时间和体力还有余裕，可以顺路逛逛王府井，吃点小吃，离故宫不远。' },
+
+  { id:'loc9', date:'2026-07-09', time:'09:00', name:'圆明园', addr:'圆明园', lat:40.0080, lng:116.2977, type:'spot',
+    desc:'西洋楼遗址、福海都值得逛，门票当日买、随时可约，不用提前太久。', budget:'大门票¥10起' },
+  { id:'loc10', date:'2026-07-09', time:'11:30', name:'清华大学', addr:'清华大学西门', lat:40.0030, lng:116.3267, type:'spot',
+    desc:'从圆明园东门到清华西门很近。校园很大，主要看看清华学堂、二校门拍照就行，时间不用太长。',
+    detail:'预约提醒：通过「清华大学」官方微信公众号预约入校，每日限额，建议提前 3-7 天约，暑期是参观高峰，名额会比较紧张。' },
+  { id:'loc11', date:'2026-07-09', time:'13:30', name:'北京大学', addr:'北京大学西门', lat:39.9928, lng:116.3057, type:'spot',
+    desc:'未名湖、博雅塔是必看，从清华到北大打车很近。',
+    detail:'预约提醒：通过「北京大学」官方微信公众号或「北京大学游客服务」小程序预约，同样建议提前几天约，暑期名额紧张。' },
+  { id:'loc12', date:'2026-07-09', time:'15:30', name:'颐和园', addr:'颐和园', lat:39.9999, lng:116.2755, type:'spot',
+    desc:'昆明湖、长廊，建议留 2 小时以上，傍晚的光线拍照很出片。', budget:'旺季30元/人（4-10月）' },
+
+  { id:'loc13', date:'2026-07-10', time:'10:00', name:'什刹海', addr:'什刹海', lat:39.9396, lng:116.3826, type:'spot',
+    desc:'沿岸散步，租自行车或坐胡同三轮都不错，夏天还能划船，悠闲为主。' },
+  { id:'loc14', date:'2026-07-10', time:'12:30', name:'北锣鼓巷', addr:'北锣鼓巷', lat:39.9445, lng:116.4030, type:'spot',
+    desc:'比南锣安静很多，小店和咖啡馆比较多，适合慢慢逛、拍照。' },
+  { id:'loc15', date:'2026-07-10', time:'14:00', name:'南锣鼓巷', addr:'南锣鼓巷', lat:39.9368, lng:116.4030, type:'spot',
+    desc:'北京最热门的胡同商业街，人会比较多，但氛围好，小吃文创可以顺手买点。' },
+  { id:'loc16', date:'2026-07-10', time:'16:00', name:'东四', addr:'东四', lat:39.9290, lng:116.4160, type:'spot',
+    desc:'老北京生活气息更浓，胡同+小店，人少一些，可以走走歇歇。' },
+  { id:'loc17', date:'2026-07-10', time:'18:30', name:'炸鸡晚饭', addr:'三里屯', lat:39.9368, lng:116.4548, type:'food',
+    desc:'对象想吃炸鸡，三里屯附近韩式炸鸡店选择不少，具体哪家可以让她当天挑，定位先放在三里屯。', dianpingKeyword:'三里屯 炸鸡' },
+  { id:'loc18', date:'2026-07-10', time:'', name:'胡大酒楼（备选，没吃够可以再来一次）', addr:'簋街', lat:39.9420, lng:116.4210, type:'food',
+    desc:'如果第一天没吃尽兴，这天也能再安排一顿，错峰避开周末排队高峰。', dianpingKeyword:'胡大酒楼簋街' },
+
+  { id:'loc19', date:'2026-07-11', time:'09:00', name:'北京动物园', addr:'北京动物园', lat:39.9388, lng:116.3398, type:'spot',
+    desc:'熊猫馆建议优先去，周末客流高峰，越早到越好。', budget:'门票¥15-19/人' },
+  { id:'loc20', date:'2026-07-11', time:'11:30', name:'北京海洋馆', addr:'北京海洋馆', lat:39.9410, lng:116.3340, type:'spot',
+    desc:'就在动物园西北门旁边，海豚表演场次建议提前在官方小程序查好时间再过去。', budget:'¥175/人起' },
+  { id:'loc21', date:'2026-07-11', time:'15:00', name:'三里屯太古里', addr:'三里屯太古里', lat:39.9368, lng:116.4548, type:'spot',
+    desc:'逛街拍照，南区北区风格不太一样，年轻潮牌集中在北区。' },
+  { id:'loc22', date:'2026-07-11', time:'17:00', name:'合生汇', addr:'朝阳合生汇', lat:39.8965, lng:116.4690, type:'spot',
+    desc:'朝阳合生汇，吃喝玩乐都齐全，逛累了可以在这吃晚饭。' },
+  { id:'loc23', date:'2026-07-11', time:'', name:'SKP（备选）', addr:'北京SKP', lat:39.9085, lng:116.4655, type:'spot',
+    desc:'想看大牌或者单纯逛逛高端商场可以加进来，在大望路，离合生汇不算太远。' },
+
+  { id:'loc24', date:'2026-07-12', time:'09:00', name:'中国人民革命军事博物馆', addr:'北京市海淀区复兴路9号', lat:39.9075, lng:116.3270, type:'spot',
+    desc:'展厅很大，建议留 2.5-3 小时，南门入馆。今天是周日客流也不低，早点到能少排队。',
+    detail:'⚠️ 预约提醒：免费但必须实名预约，通过「中国人民革命军事博物馆」微信公众号约，每天 8:00 / 17:00 / 20:00 分三批放票，建议提前 5 天左右开始蹲票；每周一闭馆。' },
+  { id:'loc25', date:'2026-07-12', time:'15:00', name:'北京环球影城大酒店', addr:'北京环球度假区', lat:39.8275, lng:116.6750, type:'hotel',
+    desc:'军博出来打车或地铁转场，大概1小时车程。先办入住放行李，晚上可以先去逛逛好莱坞大道、看夜景，第二天一早就能第一批入园。',
+    detail:'门票和酒店都建议在「北京环球度假区」官方App或小程序提前预约，暑期是全年最贵最挤的旺季，价格会明显高于平日，能错开周末就尽量错开。' },
+
+  { id:'loc26', date:'2026-07-13', time:'08:30', name:'北京环球度假区', addr:'北京环球度假区', lat:39.8328, lng:116.6818, type:'spot',
+    desc:'建议比开园早30分钟到，优先冲哈利波特禁忌之旅、变形金刚基地（排队最长的两个）。中午错峰吃饭，避开12:00-13:00高峰。',
+    budget:'暑期票约¥698-798/人（以官方实时价格为准）',
+    detail:'返程提醒：如果当天要返程，建议晚上19-20点左右离园，环球影城到北京南站/首都机场都有一段车程，记得预留出来，别卡点。门票务必走官方APP/小程序购买，"超低价票""免预约联动"基本都是骗局。' }
+];
+
+// ── 本地保存/读取（这台设备/浏览器本地，不会自动同步给别人）──
+const STORAGE_KEY = 'bjtrip-data-v4';
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && p.TRIP && Array.isArray(p.LOCS) && p.LOCS.length) {
+        return { TRIP: p.TRIP, LOCS: p.LOCS, DAY_TITLES: p.DAY_TITLES || {} };
+      }
+    }
+  } catch (e) {}
+  return {
+    TRIP: JSON.parse(JSON.stringify(DEFAULT_TRIP)),
+    LOCS: JSON.parse(JSON.stringify(DEFAULT_LOCS)),
+    DAY_TITLES: JSON.parse(JSON.stringify(DEFAULT_DAY_TITLES))
+  };
+}
+let { TRIP, LOCS, DAY_TITLES } = loadData();
+function saveData() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ TRIP, LOCS, DAY_TITLES })); } catch (e) {} }
+
+// ── 日期工具：全部用纯 UTC 整数运算，跟手机/电脑设的什么时区完全没关系，
+//    避免"本地时间构造 + 本地时间读取"在某些时区下出现的累计误差。──
+function ymdParts(dateStr) { const [y, m, d] = dateStr.split('-').map(Number); return { y, m, d }; }
+function toUtcMs(dateStr) { const { y, m, d } = ymdParts(dateStr); return Date.UTC(y, m - 1, d); }
+function fromUtcMs(ms) {
+  const dt = new Date(ms);
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(dt.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function addDays(dateStr, n) { return fromUtcMs(toUtcMs(dateStr) + n * 86400000); }
+function weekdayCN(dateStr) { return ['周日','周一','周二','周三','周四','周五','周六'][new Date(toUtcMs(dateStr)).getUTCDay()]; }
+function fmtDateCN(dateStr) { const { m, d } = ymdParts(dateStr); return `${m}月${d}日 ${weekdayCN(dateStr)}`; }
+// 行程范围直接以 TRIP.start/TRIP.end 为准：缩小范围只是把超出范围的天"隐藏"起来，
+// 那些天的地点数据并不会被删除——只要再把范围扩回去，内容会自动重新出现。
+function effectiveRange() { return [TRIP.start, TRIP.end]; }
+function dateList() {
+  const [lo, hi] = effectiveRange();
+  const out = []; let d = lo;
+  let guard = 0;
+  while (d <= hi && guard < 60) {
+    out.push(d);
+    const next = addDays(d, 1);
+    if (!next || next <= d) { console.error('dateList: 日期没有正确递增，提前停止，避免重复', d, '->', next); break; }
+    d = next;
+    guard++;
+  }
+  return out;
+}
+const DAY_COLORS = ['#ff9500','#007aff','#af52de','#ff3b30','#34c759','#8e8e93','#ff2d55','#5856d6','#ffcc00','#30b0c7'];
+function sortByTime(a, b) {
+  const at = a.time, bt = b.time;
+  if (!at && !bt) return 0;
+  if (!at) return 1;
+  if (!bt) return -1;
+  return at < bt ? -1 : at > bt ? 1 : 0;
+}
+// 改时间之后，把这一天的地点重新按时间排好序（写回 LOCS 数组顺序）
+function resortDayByTime(dateStr) {
+  const dayLocs = LOCS.filter(l => l.date === dateStr).sort(sortByTime);
+  const others = LOCS.filter(l => l.date !== dateStr);
+  LOCS = others.concat(dayLocs);
+}
+// 拖拽排序后，按拖拽结果的新顺序写回 LOCS（不再按时间自动重排，尊重手动顺序）
+function reorderDay(dateStr, idsInOrder) {
+  const dayLocs = idsInOrder.map(id => getLoc(id)).filter(Boolean);
+  const others = LOCS.filter(l => l.date !== dateStr);
+  LOCS = others.concat(dayLocs);
+  saveData();
+  rerenderCurrent();
+}
+// 上移/下移：跟拖拽手柄功能一样（同一天内换序），但不依赖指针事件，所有设备都保证好用
+function moveLocStep(id, dir) {
+  const loc = getLoc(id); if (!loc) return;
+  const dayLocs = LOCS.filter(l => l.date === loc.date);
+  const idx = dayLocs.findIndex(l => l.id === id);
+  const swapIdx = idx + dir;
+  if (idx === -1 || swapIdx < 0 || swapIdx >= dayLocs.length) return;
+  const tmp = dayLocs[idx]; dayLocs[idx] = dayLocs[swapIdx]; dayLocs[swapIdx] = tmp;
+  const others = LOCS.filter(l => l.date !== loc.date);
+  LOCS = others.concat(dayLocs);
+  saveData();
+  rerenderCurrent();
+}
+// 把某个地点挪到另一天
+function moveToDay(id, dateStr) {
+  if (!dateStr) return;
+  const loc = getLoc(id); if (!loc) return;
+  loc.date = dateStr;
+  saveData();
+  rerenderCurrent();
+}
+function getDays() {
+  return dateList().map((dt, i) => ({
+    id: dt, label: 'D' + (i+1), date: dt, dateLabel: fmtDateCN(dt), color: DAY_COLORS[i % DAY_COLORS.length],
+    locations: LOCS.filter(l => l.date === dt)
+  }));
+}
+function dayTitle(dateStr) { return DAY_TITLES[dateStr] || ''; }
+function getLoc(id) { return LOCS.find(l => l.id === id); }
+// 预算自动加总：从"¥150-200/人"这种自由文本里粗略抓数字，区间取平均；只统计已排定时间的（备选不算，因为不一定真的会去）
+function parseBudgetAmount(budgetStr) {
+  if (!budgetStr) return 0;
+  const s = String(budgetStr);
+  let m = s.match(/¥\s*(\d+(?:\.\d+)?)\s*[-~]\s*(\d+(?:\.\d+)?)/);
+  if (m) return (parseFloat(m[1]) + parseFloat(m[2])) / 2;
+  m = s.match(/(\d+(?:\.\d+)?)\s*[-~]\s*(\d+(?:\.\d+)?)\s*元/);
+  if (m) return (parseFloat(m[1]) + parseFloat(m[2])) / 2;
+  m = s.match(/¥\s*(\d+(?:\.\d+)?)/);
+  if (m) return parseFloat(m[1]);
+  m = s.match(/(\d+(?:\.\d+)?)\s*元/);
+  if (m) return parseFloat(m[1]);
+  m = s.match(/(\d+(?:\.\d+)?)/);
+  if (m) return parseFloat(m[1]);
+  return 0;
+}
+function dayBudgetTotal(dateStr) {
+  return LOCS.filter(l => l.date === dateStr && l.time).reduce((sum, l) => sum + parseBudgetAmount(l.budget), 0);
+}
+function tripBudgetTotal() {
+  return getDays().reduce((sum, d) => sum + dayBudgetTotal(d.id), 0);
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  坐标转换：WGS84 ↔ GCJ02（国内地图必须转换，否则点位偏移）       ║
+// ╚══════════════════════════════════════════════════════════════╝
+const PI = Math.PI, A_AXIS = 6378245.0, EE = 0.00669342162296594323;
+function outOfChina(lng, lat) { return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271; }
+function transformLat(x, y) {
+  let ret = -100.0 + 2.0*x + 3.0*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x));
+  ret += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  ret += (20.0*Math.sin(y*PI) + 40.0*Math.sin(y/3.0*PI)) * 2.0/3.0;
+  ret += (160.0*Math.sin(y/12.0*PI) + 320*Math.sin(y*PI/30.0)) * 2.0/3.0;
+  return ret;
+}
+function transformLng(x, y) {
+  let ret = 300.0 + x + 2.0*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x));
+  ret += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  ret += (20.0*Math.sin(x*PI) + 40.0*Math.sin(x/3.0*PI)) * 2.0/3.0;
+  ret += (150.0*Math.sin(x/12.0*PI) + 300.0*Math.sin(x/30.0*PI)) * 2.0/3.0;
+  return ret;
+}
+function wgs84ToGcj02(lng, lat) {
+  if (outOfChina(lng, lat)) return [lng, lat];
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((A_AXIS * (1 - EE)) / (magic * sqrtMagic) * PI);
+  dLng = (dLng * 180.0) / (A_AXIS / sqrtMagic * Math.cos(radLat) * PI);
+  return [lng + dLng, lat + dLat];
+}
+function gcj02ToWgs84(lng, lat) {
+  if (outOfChina(lng, lat)) return [lng, lat];
+  const [glng, glat] = wgs84ToGcj02(lng, lat);
+  return [lng - (glng - lng), lat - (glat - lat)];
+}
+function gpos(loc) { return wgs84ToGcj02(loc.lng, loc.lat); }
+function gposLL(lat, lng) { return wgs84ToGcj02(lng, lat); }
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  高德地图引擎                                                  ║
+// ╚══════════════════════════════════════════════════════════════╝
+let map, mapReady = false;
+window._AMapSecurityConfig = { securityJsCode: AMAP_SECRET };
+function loadAMapScript(cb) {
+  const s = document.createElement('script');
+  s.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}`;
+  s.onload = cb;
+  s.onerror = () => showMapFail();
+  document.head.appendChild(s);
+}
+function showMapFail() {
+  const el = document.getElementById('map');
+  el.innerHTML = '<div class="amap-fail"><b>地图加载失败</b><div>检查一下高德 Key / 安全密钥，或者控制台「服务设置」里把「数字签名校验」关掉试试。不影响下面的行程卡片，导航按钮依然可以用。</div></div>';
+}
+let markers = [], polylines = [];
+let locMarker = null, locCircle = null;
+const emojis = { food:'🍽️', spot:'📍', hotel:'🏨', drink:'🍺' };
+function iconHtml(color, emoji) {
+  return `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.18)">${emoji||''}</div>`;
+}
+function dotHtml(color) {
+  return `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div>`;
+}
+function clearMap() {
+  markers.forEach(m => m.setMap(null));
+  polylines.forEach(p => p.setMap(null));
+  markers = []; polylines = [];
+}
+function initMap() {
+  try {
+    const center = HOTEL.lat ? gpos(HOTEL) : gposLL(39.90, 116.40);
+    map = new AMap.Map('map', { zoom: 11, center: center, resizeEnable: true });
+    try { map.addControl(new AMap.ToolBar({ position: 'RT' })); } catch (e) {}
+    if (HOTEL.lat) {
+      const hm = new AMap.Marker({ position: gpos(HOTEL), content: iconHtml('#ff9500','🏨'), offset: new AMap.Pixel(-14,-14), zIndex: 200, map: map });
+      const iw = new AMap.InfoWindow({ content: `<b>${HOTEL.name}</b>`, offset: new AMap.Pixel(0,-18) });
+      hm.on('click', () => iw.open(map, hm.getPosition()));
+    }
+    // 提前把搜索/路线/逆地理编码这几个插件加载好，免得用户第一次点搜索时要现等插件下载，搜索会感觉更快
+    try { withPlaceSearch(() => {}); withGeocoder(() => {}); withDriving(() => {}); } catch (e) {}
+    // 点地图空白处（不是点我们自己加的图钉），查一下高德自己的当地信息（地址+附近POI）
+    map.on('click', (e) => {
+      const lnglat = e.lnglat; if (!lnglat) return;
+      withGeocoder(geocoder => {
+        geocoder.getAddress([lnglat.getLng(), lnglat.getLat()], (status, result) => {
+          if (status === 'complete' && result.regeocode) {
+            const addr = result.regeocode.formattedAddress || '';
+            const pois = result.regeocode.pois || [];
+            let html = `<b>${escHtml(addr)}</b>`;
+            if (pois.length) html += '<br><span style="color:#86868b">附近：' + pois.slice(0,3).map(p=>escHtml(p.name)).join('、') + '</span>';
+            new AMap.InfoWindow({ content: html, offset: new AMap.Pixel(0,-6) }).open(map, lnglat);
+          }
+        });
+      });
+    });
+    mapReady = true;
+    go(cur);
+  } catch (e) {
+    showMapFail();
+    console.error(e);
+  }
+}
+function showDay(idx) {
+  if (!mapReady) return;
+  clearMap();
+  if (idx === 'overview') {
+    const pts = [];
+    LOCS.forEach(l => { if (l.lat) pts.push(gposLL(l.lat, l.lng)); });
+    getDays().forEach(d => {
+      d.locations.forEach(l => {
+        const p = gposLL(l.lat, l.lng);
+        const m = new AMap.Marker({ position: p, content: dotHtml(d.color), offset: new AMap.Pixel(-5,-5), map: map });
+        const iw = new AMap.InfoWindow({ content: `<b>${l.name}</b><br><span style="color:#86868b">${d.label} · ${d.dateLabel}</span>`, offset: new AMap.Pixel(0,-10) });
+        m.on('click', () => iw.open(map, m.getPosition()));
+        markers.push(m);
+      });
+    });
+    if (pts.length) { try { map.setFitView(null, false, [30,30,30,30]); } catch (e) {} }
+    return;
+  }
+  const day = getDays().find(d => d.id === idx);
+  if (!day) return;
+  const coords = [];
+  day.locations.forEach(l => {
+    if (!l.lat) return;
+    const p = gposLL(l.lat, l.lng);
+    const m = new AMap.Marker({ position: p, content: iconHtml(day.color, emojis[l.type]||'📌'), offset: new AMap.Pixel(-14,-14), map: map, draggable: true, cursor: 'move' });
+    const safeName = l.name.replace(/'/g, "\\'");
+    const html = `<b>${l.name}</b>${l.time?'<br><span style="color:#86868b">'+l.time+'</span>':''}<br>${l.desc||''}${l.budget?'<br><span style="color:#ff9500">'+l.budget+'</span>':''}<br><a href="#" onclick="event.preventDefault();openAS('${safeName}',${l.lat},${l.lng})">📍 导航</a>`;
+    const iw = new AMap.InfoWindow({ content: html, offset: new AMap.Pixel(0,-18) });
+    m.on('click', () => iw.open(map, m.getPosition()));
+    m.on('dragend', () => {
+      const np = m.getPosition();
+      const [wlng, wlat] = gcj02ToWgs84(np.getLng(), np.getLat());
+      updateLocPos(l.id, wlat, wlng);
+    });
+    markers.push(m);
+    if (l.time) coords.push(p);
+  });
+  if (coords.length > 1) {
+    polylines.push(new AMap.Polyline({ path: coords, strokeColor: day.color, strokeWeight: 3.5, strokeOpacity: .65, strokeStyle: 'solid', showDir: true, map: map }));
+  }
+  if (coords.length) { try { map.setFitView(markers, false, [40,40,40,40]); } catch (e) {} }
+}
+
+/* ── 我的位置 ── */
+document.getElementById('locateBtn').addEventListener('click', function() {
+  if (!mapReady || !navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(posData => {
+    const { latitude, longitude, accuracy } = posData.coords;
+    const ll = gposLL(latitude, longitude);
+    if (locMarker) { locMarker.setPosition(ll); locCircle.setCenter(ll); locCircle.setRadius(Math.max(accuracy/2, 20)); }
+    else {
+      locMarker = new AMap.Marker({ position: ll, content: '<div style="width:14px;height:14px;border-radius:50%;background:#007aff;border:2.5px solid #fff;box-shadow:0 0 6px rgba(0,122,255,.5)"></div>', offset: new AMap.Pixel(-7,-7), zIndex: 300, map: map });
+      locCircle = new AMap.Circle({ center: ll, radius: Math.max(accuracy/2, 20), strokeColor:'#007aff', strokeWeight:1, fillColor:'#007aff', fillOpacity:.08, map: map });
+    }
+    map.setZoomAndCenter(15, ll);
+  }, () => {}, { enableHighAccuracy: true, timeout: 10000 });
+});
+
+/* ── 地图调暗（只压暗底图，图钉不受影响） ── */
+function setMapDim(val) {
+  const overlay = document.getElementById('mapDimOverlay');
+  if (overlay) overlay.style.opacity = (val / 100);
+  try { localStorage.setItem('bjtrip-mapdim-v1', val); } catch (e) {}
+}
+(function restoreMapDim() {
+  try {
+    const saved = localStorage.getItem('bjtrip-mapdim-v1');
+    if (saved !== null) {
+      const slider = document.getElementById('mapDimSlider');
+      if (slider) { slider.value = saved; setMapDim(saved); }
+    }
+  } catch (e) {}
+})();
+
+/* ── 地址搜索 / 反查（高德 Geocoder）── */
+let _geocoder = null;
+function withGeocoder(cb) {
+  if (_geocoder) { cb(_geocoder); return; }
+  try {
+    AMap.plugin('AMap.Geocoder', function() {
+      _geocoder = new AMap.Geocoder({ city: '北京' });
+      cb(_geocoder);
+    });
+  } catch (e) { console.error(e); }
+}
+function reverseGeocode(id, lat, lng) {
+  withGeocoder(geocoder => {
+    const [glng, glat] = gposLL(lat, lng);
+    geocoder.getAddress([glng, glat], (status, result) => {
+      if (status === 'complete' && result.regeocode) {
+        const loc = getLoc(id); if (!loc) return;
+        loc.addr = result.regeocode.formattedAddress || loc.addr;
+        saveData();
+        rerenderCurrent();
+      }
+    });
+  });
+}
+let _placeSearch = null;
+function withPlaceSearch(cb) {
+  if (_placeSearch) { cb(_placeSearch); return; }
+  try {
+    AMap.plugin('AMap.PlaceSearch', function() {
+      _placeSearch = new AMap.PlaceSearch({ city: '北京', pageSize: 8 });
+      cb(_placeSearch);
+    });
+  } catch (e) { console.error(e); }
+}
+function searchAddr(id) {
+  const loc = getLoc(id); if (!loc) return;
+  const q = (loc.addr || loc.name || '').trim();
+  if (!q) { alert('先填一下地址或者名称'); return; }
+  const dd = document.getElementById('searchdd-' + id);
+  if (dd) { dd.innerHTML = '<div class="sr-item sr-loading">搜索中…</div>'; dd.classList.add('show'); }
+  withPlaceSearch(placeSearch => {
+    placeSearch.search(q, (status, result) => {
+      if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length) {
+        openSearchResults(id, result.poiList.pois);
+      } else {
+        if (dd) { dd.innerHTML = '<div class="sr-item sr-loading">没搜到相关地点，换个写法试试，比如加上"北京市"或更具体的路名/商圈名</div>'; }
+      }
+    });
+  });
+}
+// 找出这个地点在当天行程里排在它前面的那一站（如果是当天第一个，就以酒店为参照）
+function previousStopOf(loc) {
+  const day = getDays().find(d => d.id === loc.date);
+  if (day) {
+    const idx = day.locations.findIndex(l => l.id === loc.id);
+    if (idx > 0) return day.locations[idx - 1];
+  }
+  return HOTEL.lat ? HOTEL : null;
+}
+let _driving = null;
+function withDriving(cb) {
+  if (_driving) { cb(_driving); return; }
+  try { AMap.plugin('AMap.Driving', function() { _driving = new AMap.Driving({ map: null }); cb(_driving); }); }
+  catch (e) { console.error(e); }
+}
+function openSearchResults(id, pois) {
+  window._searchPois = window._searchPois || {};
+  window._searchPois[id] = pois;
+  const dd = document.getElementById('searchdd-' + id);
+  if (!dd) return;
+  dd.innerHTML = pois.slice(0, 8).map((p, i) =>
+    `<div class="sr-item" onclick="pickSearchResult('${id}', window._searchPois['${id}'][${i}])">
+      <span class="sr-name">${escHtml(p.name||'')}</span>
+      <span class="sr-addr">${escHtml(p.address||'')}</span>
+      <span class="sr-eta" id="eta-${id}-${i}"></span>
+    </div>`
+  ).join('');
+  dd.classList.add('show');
+  computeEtasForResults(id, pois);
+}
+function computeEtasForResults(id, pois) {
+  const loc = getLoc(id); if (!loc) return;
+  const prev = previousStopOf(loc);
+  if (!prev || !prev.lat) return; // 没有参照点（比如酒店也没填坐标），就不算车程，留空
+  withDriving(driving => {
+    pois.slice(0, 8).forEach((p, i) => {
+      const el = document.getElementById(`eta-${id}-${i}`);
+      if (!el) return;
+      el.textContent = '🚗 算车程中…';
+      try {
+        const lng = p.location.getLng ? p.location.getLng() : p.location.lng;
+        const lat = p.location.getLat ? p.location.getLat() : p.location.lat;
+        const origin = gposLL(prev.lat, prev.lng);
+        driving.search(new AMap.LngLat(origin[0], origin[1]), new AMap.LngLat(lng, lat), (status, result) => {
+          if (!document.getElementById(`eta-${id}-${i}`)) return; // 用户可能已经关掉下拉了
+          if (status === 'complete' && result.routes && result.routes.length) {
+            const r = result.routes[0];
+            const mins = Math.round(r.time / 60);
+            const km = (r.distance / 1000).toFixed(1);
+            el.textContent = `🚗 距上一站约 ${mins} 分钟（${km}km）`;
+          } else {
+            el.textContent = '🚗 车程算不出来';
+          }
+        });
+      } catch (e) { el.textContent = ''; }
+    });
+  });
+}
+function computeDayEtas(dateStr) {
+  const day = getDays().find(d => d.id === dateStr); if (!day) return;
+  withDriving(driving => {
+    day.locations.forEach((loc, i) => {
+      const el = document.getElementById('etaprev-' + loc.id);
+      if (!el) return;
+      const prev = i > 0 ? day.locations[i - 1] : (HOTEL.lat ? HOTEL : null);
+      if (!prev || !prev.lat || !loc.lat) { el.textContent = ''; return; }
+      const label = i > 0 ? '距上一站' : '距酒店';
+      el.textContent = '🚗 算车程中…';
+      try {
+        const o = gposLL(prev.lat, prev.lng);
+        const d = gposLL(loc.lat, loc.lng);
+        driving.search(new AMap.LngLat(o[0], o[1]), new AMap.LngLat(d[0], d[1]), (status, result) => {
+          const el2 = document.getElementById('etaprev-' + loc.id); if (!el2) return;
+          if (status === 'complete' && result.routes && result.routes.length) {
+            const r = result.routes[0];
+            const mins = Math.round(r.time / 60);
+            const km = (r.distance / 1000).toFixed(1);
+            el2.textContent = `🚗 ${label} ${km}km · 约${mins}分钟`;
+          } else {
+            el2.textContent = '';
+          }
+        });
+      } catch (e) { el.textContent = ''; }
+    });
+  });
+}
+function closeSearchDropdown(id) {
+  const dd = document.getElementById('searchdd-' + id);
+  if (dd) dd.classList.remove('show');
+}
+function pickSearchResult(id, p) {
+  const loc = getLoc(id);
+  if (loc && p && p.location) {
+    const lng = p.location.getLng ? p.location.getLng() : p.location.lng;
+    const lat = p.location.getLat ? p.location.getLat() : p.location.lat;
+    const [wlng, wlat] = gcj02ToWgs84(lng, lat);
+    loc.lat = wlat; loc.lng = wlng;
+    loc.addr = p.address || p.name || loc.addr;
+    saveData();
+    rerenderCurrent();
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  RENDER（点哪改哪，没有单独的"编辑模式"开关）                   ║
+// ╚══════════════════════════════════════════════════════════════╝
+function escAttr(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function escHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+const IN_APP_WEBVIEW = (() => {
+  const ua = (navigator.userAgent || '').toLowerCase();
+  return /micromessenger|xhs|xhsdiscover|discover\/|tiktok|aweme|weibo|qq\/|qqbrowser|alipayclient|dingtalk|lark|feishu|ucbrowser|baiduboxapp|toutiao|newsarticle/.test(ua);
+})();
+function xhsKeyword(loc) {
+  if (loc.xhsKeyword) return loc.xhsKeyword.trim();
+  return (loc.name||'').replace(/⭐.*$/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+function xhsAppUrl(loc) { return `xhsdiscover://search/result?keyword=${encodeURIComponent(xhsKeyword(loc))}&target_search=notes&source=deeplink`; }
+function xhsWebUrl(loc) { return `https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(xhsKeyword(loc))}&source=web_explore_feed`; }
+function dpKeyword(loc) {
+  if (loc.dianpingKeyword) return loc.dianpingKeyword.trim();
+  return (loc.name||'').replace(/⭐.*$/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+function dpAppUrl(loc) { return `dianping://searchshoplist?keyword=${encodeURIComponent(dpKeyword(loc))}`; }
+function dpWebUrl(loc) { return `https://m.dianping.com/searchshop?keyword=${encodeURIComponent(dpKeyword(loc))}`; }
+function openExt(id, kind) {
+  const loc = getLoc(id); if (!loc) return false;
+  if (IN_APP_WEBVIEW) { window.location.href = kind==='dp' ? dpWebUrl(loc) : xhsWebUrl(loc); }
+  else { window.location.href = kind==='dp' ? dpAppUrl(loc) : xhsAppUrl(loc); }
+  return false;
+}
+function openXhs(id) { return openExt(id, 'xhs'); }
+function openDp(id) { return openExt(id, 'dp'); }
+
+function locCard(loc) {
+  const dot = loc.type==='food'?'food':loc.type==='spot'?'spot':loc.type==='drink'?'drink':loc.type==='hotel'?'hotel':'spot';
+  let lnk = `<button class="btn nav" onclick="openAS('${loc.name.replace(/'/g,"\\'")}',${loc.lat},${loc.lng})">📍 导航</button>`;
+  if (loc.xhs || loc.xhsKeyword) {
+    const xhsHref = IN_APP_WEBVIEW ? xhsWebUrl(loc) : xhsAppUrl(loc);
+    const xhsLabel = IN_APP_WEBVIEW ? '📕 小红书' : '📕 小红书 App';
+    lnk += `<a href="${xhsHref}" onclick="return openXhs('${loc.id}')" class="btn xhs">${xhsLabel}</a>`;
+  }
+  const dpEnabled = loc.dianping !== false && (loc.dianping || loc.dianpingKeyword || loc.type==='food' || loc.type==='drink');
+  if (dpEnabled) {
+    const dpHref = IN_APP_WEBVIEW ? dpWebUrl(loc) : dpAppUrl(loc);
+    const dpLabel = IN_APP_WEBVIEW ? '🍜 大众点评' : '🍜 大众点评 App';
+    lnk += `<a href="${dpHref}" onclick="return openDp('${loc.id}')" class="btn dp">${dpLabel}</a>`;
+  }
+  if (loc.reserve) lnk += `<a href="${loc.reserve}" target="_blank" class="btn rsv">📅 预约</a>`;
+  lnk += `<button class="btn del" title="删除" onclick="deleteLoc('${loc.id}')">🗑</button>`;
+  const moveOptions = getDays().map(d => `<option value="${d.id}" ${d.id===loc.date?'disabled':''}>移到 ${d.label} · ${d.dateLabel}</option>`).join('');
+  return `<div class="tl-item" data-locid="${loc.id}"><div class="tl-dot ${dot}"></div><div class="card">
+    <div class="row-top">
+      <span class="drag-handle" title="按住拖动换顺序" onpointerdown="startDrag(event,'loc','${loc.id}')">⠿</span>
+      <button class="mini-btn step-btn" title="往前挪一个" onclick="moveLocStep('${loc.id}',-1)">⬆️</button>
+      <button class="mini-btn step-btn" title="往后挪一个" onclick="moveLocStep('${loc.id}',1)">⬇️</button>
+      <input type="time" class="f-input f-time" value="${escAttr(loc.time||'')}" onchange="updateLoc('${loc.id}','time',this.value)">
+      <select class="f-input f-type" onchange="updateLoc('${loc.id}','type',this.value)">
+        <option value="spot" ${loc.type==='spot'?'selected':''}>📍景点</option>
+        <option value="food" ${loc.type==='food'?'selected':''}>🍽️餐厅</option>
+        <option value="hotel" ${loc.type==='hotel'?'selected':''}>🏨住宿</option>
+        <option value="drink" ${loc.type==='drink'?'selected':''}>🍺饮品</option>
+      </select>
+      <select class="f-input f-moveday" onchange="moveToDay('${loc.id}', this.value); this.selectedIndex=0;">
+        <option value="">📅 移到…</option>
+        ${moveOptions}
+      </select>
+    </div>
+    <input class="f-input f-name" value="${escAttr(loc.name)}" placeholder="名称" onchange="updateLoc('${loc.id}','name',this.value)">
+    <div class="prev-eta" id="etaprev-${loc.id}"></div>
+    <div class="addr-row">
+      <input class="f-input f-addr" value="${escAttr(loc.addr||'')}" placeholder="地址 / 搜索关键词" onchange="updateLoc('${loc.id}','addr',this.value)">
+      <button class="mini-btn" onclick="searchAddr('${loc.id}')">🔍定位</button>
+      <button class="mini-btn" onclick="closeSearchDropdown('${loc.id}')" title="关闭搜索结果">✕</button>
+    </div>
+    <div class="search-dropdown" id="searchdd-${loc.id}"></div>
+    <textarea class="f-input f-desc" placeholder="描述" onchange="updateLoc('${loc.id}','desc',this.value)">${escHtml(loc.desc||'')}</textarea>
+    <input class="f-input f-budget" value="${escAttr(loc.budget||'')}" placeholder="预算，如 ¥100/人" onchange="updateLoc('${loc.id}','budget',this.value)">
+    <textarea class="f-input f-detail" placeholder="备注 / 预约提醒" onchange="updateLoc('${loc.id}','detail',this.value)">${escHtml(loc.detail||'')}</textarea>
+    <div class="links">${lnk}</div>
+  </div></div>`;
+}
+
+function renderDay(dateStr) {
+  const day = getDays().find(d => d.id === dateStr); if (!day) return '';
+  const total = dayBudgetTotal(dateStr);
+  let h = `<div class="day-head">
+    <div class="dh-row1"><span class="dh-badge" style="background:${day.color}">${day.label}</span>
+      <input class="f-input f-daytitle" value="${escAttr(dayTitle(dateStr))}" placeholder="这天主题，比如 故宫·天安门" onchange="setDayTitle('${dateStr}', this.value)">
+    </div>
+    <div class="dh-row2">
+      <input type="date" class="f-input f-day-date" value="${dateStr}" min="${TRIP.start}" max="${TRIP.end}" onchange="moveDayToDate('${dateStr}', this.value)" title="改这个日期，这天的内容会自动挪到对应的位置">
+      <span class="dh-meta">${day.dateLabel} · ${day.locations.length} 个地点${total>0?' · 预估 ¥'+total.toFixed(0):''}</span>
+    </div>
+    <button class="mini-btn del-day" onclick="deleteDay('${dateStr}')">🗑 删除这一天</button>
+  </div>`;
+  h += '<div class="timeline">';
+  day.locations.forEach(l => h += locCard(l));
+  h += '</div>';
+  h += `<button class="btn add-loc" onclick="addLoc('${dateStr}')">＋ 添加新地点</button>`;
+  return h;
+}
+
+function overviewContent() {
+  const days = getDays();
+  const grandTotal = tripBudgetTotal();
+  return `
+  <div class="hero"><h1>北京行程</h1><p class="subtitle">你 + 对象，两个人的北京 · 点哪改哪</p></div>
+  <div class="info-grid">
+    <div class="info-card"><div class="label">出发日期</div><input type="date" class="f-input" value="${TRIP.start}" onchange="setTripStart(this.value)"></div>
+    <div class="info-card"><div class="label">结束日期</div><input type="date" class="f-input" value="${TRIP.end}" onchange="setTripEnd(this.value)"></div>
+    <div class="info-card"><div class="label">主要住宿</div><div class="value">亚朵轻居·三元桥店</div></div>
+    <div class="info-card"><div class="label">预估总花费</div><div class="value">${grandTotal>0?'约 ¥'+grandTotal.toFixed(0):'—'}</div></div>
+  </div>
+  <div class="section-head" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>行程概览（点进去看当天，拖⠿可以调整这天在第几天）</span>
+    ${days.length > 6 ? `<button class="mini-btn" onclick="toggleDayList()">${dayListExpanded ? '收起' : '展开全部('+days.length+'天)'}</button>` : ''}
+  </div>
+  <div class="day-list">${(dayListExpanded ? days : days.slice(0,6)).map(d=>{const t=dayBudgetTotal(d.id);return `<div class="card day-card" data-dateid="${d.id}" onclick="if(!event.target.closest('.drag-handle'))go('${d.id}')"><div class="name"><span class="drag-handle" title="按住拖动调整这天的顺序" onpointerdown="startDrag(event,'day','${d.id}')">⠿</span><span class="dot" style="background:${d.color}"></span>${d.label} · ${dayTitle(d.id)||'（还没起标题，点进去加一个）'}</div><div class="desc">${d.dateLabel} · ${d.locations.length} 个地点${t>0?' · ¥'+t.toFixed(0):''}</div></div>`;}).join('')}</div>
+  <div class="io-row">
+    <button onclick="addDayBefore()">⏮️ 最前面加一天</button>
+    <button onclick="addDayAfter()">⏭️ 最后面加一天</button>
+  </div>
+  <div class="section-head">⚠️ 预约提醒（务必提前看）</div>
+  <div class="pay-summary">
+    <table>
+      <tr><td>故宫</td><td class="warn">去之前7天20:00整开抢，每证每天限1张，周一闭馆</td></tr>
+      <tr><td>人民大会堂</td><td>提前1-3天预约，不售当日票</td></tr>
+      <tr><td>天安门广场</td><td>提前1-7天预约，约了人民大会堂/纪念堂可直接进广场</td></tr>
+      <tr><td>清华/北大</td><td>提前3-7天通过校方公众号预约，暑期名额紧张</td></tr>
+      <tr><td>军事博物馆</td><td class="warn">提前约5天开始蹲票，每天8:00/17:00/20:00放票三批，免费但必须约</td></tr>
+      <tr><td>环球影城</td><td>提前1-7天官方APP/小程序购票+订酒店，暑期是全年最贵的档期</td></tr>
+    </table>
+  </div>
+  <div class="section-head">提醒</div>
+  <div class="pay-summary">
+    故宫/军博/人民大会堂/天安门都是实名核验，<b>身份证原件一定要带在身上</b>。这是参考行程，不是必须照做的剧本——天气、排队情况、体力，随时可以临场调整顺序。
+  </div>
+  <div class="section-head">图例</div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tint-red)"></div>餐厅</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tint-blue)"></div>景点</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tint-orange)"></div>酒店</div>
+  </div>
+  <div class="section-head">🔄 跟对象同步</div>
+  <div class="pay-summary">
+    所有修改只存在<b>这台设备的这个浏览器里</b>。要同步给她：导出一个文件，微信发给她，她打开同一个网址点导入。
+    <div class="io-row">
+      <button onclick="exportData()">⬇️ 导出当前行程</button>
+      <label for="importFile">⬆️ 导入行程文件</label>
+      <button onclick="resetData()">↺ 恢复默认</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+  </div>`;
+}
+
+// ══════════ NAV ══════════
+let cur = 'overview';
+let dayListExpanded = true; // 总览页"行程概览"默认全展开，天数多的话可以手动收起来
+function toggleDayList() { dayListExpanded = !dayListExpanded; rerenderCurrent(); }
+const tabsEl = document.getElementById('tabs');
+const contentEl = document.getElementById('content');
+function buildTabs() {
+  tabsEl.innerHTML = '';
+  const ov = document.createElement('button');
+  ov.className = 'tab' + (cur==='overview' ? ' active' : '');
+  ov.dataset.day = 'overview';
+  ov.textContent = '总览';
+  tabsEl.appendChild(ov);
+  getDays().forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (d.id===cur ? ' active' : '');
+    btn.dataset.day = d.id;
+    btn.textContent = d.label;
+    tabsEl.appendChild(btn);
+  });
+}
+tabsEl.addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) go(t.dataset.day); });
+function go(idx) {
+  cur = idx;
+  buildTabs();
+  contentEl.innerHTML = idx==='overview' ? overviewContent() : renderDay(idx);
+  showDay(idx);
+  if (idx !== 'overview' && mapReady) computeDayEtas(idx);
+  try { contentEl.scrollTo({ top: 0 }); } catch (e) { contentEl.scrollTop = 0; }
+  const tab = [...tabsEl.querySelectorAll('.tab')].find(t => t.dataset.day === String(idx));
+  if (tab) { try { tab.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }); } catch (e) {} }
+}
+function rerenderCurrent() {
+  const st = contentEl.scrollTop;
+  buildTabs();
+  contentEl.innerHTML = cur==='overview' ? overviewContent() : renderDay(cur);
+  showDay(cur);
+  if (cur !== 'overview' && mapReady) computeDayEtas(cur);
+  contentEl.scrollTop = st;
+}
+// 关键：标签栏和内容必须立刻渲染出来，不依赖地图是否加载成功 —— 这样即使高德地图加载慢/失败，
+// 侧边栏依然完整可用，不会变成一片空白。
+buildTabs();
+contentEl.innerHTML = overviewContent();
+// 地图脚本独立、尽早开始加载，不受后面任何代码影响
+loadAMapScript(initMap);
+
+// ══════════ 数据增删改 ══════════
+function updateLoc(id, field, value) {
+  const loc = getLoc(id); if (!loc) return;
+  loc[field] = value;
+  if (field === 'time') resortDayByTime(loc.date);
+  saveData();
+  rerenderCurrent();
+}
+function updateLocPos(id, lat, lng) {
+  const loc = getLoc(id); if (!loc) return;
+  loc.lat = lat; loc.lng = lng;
+  saveData();
+  rerenderCurrent();
+  reverseGeocode(id, lat, lng);
+}
+function deleteLoc(id) {
+  if (!confirm('确定删除这个地点吗？')) return;
+  LOCS = LOCS.filter(l => l.id !== id);
+  saveData();
+  rerenderCurrent();
+}
+function addLoc(dateStr) {
+  const base = LOCS.find(l => l.date === dateStr) || HOTEL;
+  const id = 'loc_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+  LOCS.push({ id, date: dateStr, time: '', name: '新地点', addr: '', lat: base.lat, lng: base.lng, type: 'spot', desc: '点这里改描述' });
+  saveData();
+  rerenderCurrent();
+}
+
+// ── 同一天内拖拽换序（用指针事件，手机/电脑都能用）──
+// 拖拽换序：拖动过程中用 position:fixed 让卡片完全脱离原容器（不受任何滚动区域裁切影响），
+// 跟着手指/鼠标走，原位置用一个占位框提示"松手会插到这里"。
+// 真正的顺序/归属变化，只在松手(pointerup)那一刻一次性计算并提交——绝不在拖动途中改动被拖拽
+// 元素本身在 DOM 树里的位置，这是为了避开"指针捕获 + 实时搬动DOM节点"在部分移动端浏览器上
+// 会丢失后续移动事件的坑。
+// loc 模式下，把卡片拖到顶部标签栏（拖到某个 Dx 标签上）可以直接跨天移动；
+// 拖到普通的同天列表位置则是同天内重新排序。
+let dragCtx = null;
+function startDrag(e, mode, key) {
+  e.preventDefault();
+  const selector = mode === 'day' ? '.day-card' : '.tl-item';
+  const cardEl = e.currentTarget.closest(selector); if (!cardEl) return;
+  const container = cardEl.parentElement; if (!container) return;
+  const items = [...container.querySelectorAll(selector)];
+  const startIndex = items.indexOf(cardEl);
+  if (startIndex < 0) return;
+  const rect = cardEl.getBoundingClientRect();
+  const placeholder = document.createElement('div');
+  placeholder.className = 'drag-placeholder';
+  placeholder.style.height = rect.height + 'px';
+  container.insertBefore(placeholder, cardEl);
+  dragCtx = {
+    mode, key, cardEl, container, items, placeholder,
+    rects: items.map(el => el.getBoundingClientRect()),
+    startIndex, targetIndex: startIndex,
+    startY: e.clientY, startX: e.clientX, origRect: rect,
+    pointerId: e.pointerId, crossDayTarget: null
+  };
+  cardEl.classList.add('dragging');
+  cardEl.style.position = 'fixed';
+  cardEl.style.left = rect.left + 'px';
+  cardEl.style.top = rect.top + 'px';
+  cardEl.style.width = rect.width + 'px';
+  cardEl.style.zIndex = '9999';
+  try { cardEl.setPointerCapture(e.pointerId); } catch (err) {}
+  cardEl.addEventListener('pointermove', onDragMove);
+  cardEl.addEventListener('pointerup', onDragEnd);
+  cardEl.addEventListener('pointercancel', onDragEnd);
+}
+function onDragMove(e) {
+  if (!dragCtx) return;
+  e.preventDefault();
+  const dx = e.clientX - dragCtx.startX;
+  const dy = e.clientY - dragCtx.startY;
+  dragCtx.cardEl.style.left = (dragCtx.origRect.left + dx) + 'px';
+  dragCtx.cardEl.style.top = (dragCtx.origRect.top + dy) + 'px';
+
+  if (dragCtx.mode === 'loc') {
+    const tabsRect = tabsEl.getBoundingClientRect();
+    if (e.clientY <= tabsRect.bottom + 6) {
+      // 手指已经抬到标签栏的高度了 —— 找最近停在哪个 Dx 标签上面，准备跨天移动
+      const tabs = [...tabsEl.querySelectorAll('.tab')].filter(t => t.dataset.day !== undefined && t.dataset.day !== 'overview');
+      let hoverTab = null;
+      tabs.forEach(t => { const r = t.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right) hoverTab = t; });
+      tabs.forEach(t => t.classList.toggle('drop-target', t === hoverTab));
+      dragCtx.crossDayTarget = hoverTab ? hoverTab.dataset.day : null;
+      dragCtx.placeholder.style.display = 'none';
+      return;
+    } else {
+      tabsEl.querySelectorAll('.tab').forEach(t => t.classList.remove('drop-target'));
+      dragCtx.crossDayTarget = null;
+      dragCtx.placeholder.style.display = '';
+    }
+  }
+  // 同一容器内排序：数一下有多少"其它卡片"原本的中心点在被拖拽卡片现在的中心点之上，
+  // 据此把占位框挪到对应位置，提示"松手会插到这里"
+  const draggedCenter = dragCtx.origRect.top + dragCtx.origRect.height / 2 + dy;
+  let count = 0;
+  dragCtx.rects.forEach((r, i) => {
+    if (i === dragCtx.startIndex) return;
+    if (r.top + r.height / 2 < draggedCenter) count++;
+  });
+  dragCtx.targetIndex = count;
+  const selector = dragCtx.mode === 'day' ? '.day-card' : '.tl-item';
+  const others = [...dragCtx.container.querySelectorAll(selector)].filter(el => el !== dragCtx.cardEl && el !== dragCtx.placeholder);
+  const ref = others[count];
+  if (ref) dragCtx.container.insertBefore(dragCtx.placeholder, ref);
+  else dragCtx.container.appendChild(dragCtx.placeholder);
+}
+function onDragEnd(e) {
+  if (!dragCtx) return;
+  const { cardEl, items, startIndex, targetIndex, mode, key, crossDayTarget, placeholder, pointerId } = dragCtx;
+  cardEl.classList.remove('dragging');
+  cardEl.style.position = '';
+  cardEl.style.left = '';
+  cardEl.style.top = '';
+  cardEl.style.width = '';
+  cardEl.style.zIndex = '';
+  cardEl.removeEventListener('pointermove', onDragMove);
+  cardEl.removeEventListener('pointerup', onDragEnd);
+  cardEl.removeEventListener('pointercancel', onDragEnd);
+  try { cardEl.releasePointerCapture(pointerId); } catch (err) {}
+  if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+  tabsEl.querySelectorAll('.tab').forEach(t => t.classList.remove('drop-target'));
+  dragCtx = null;
+  if (mode === 'loc' && crossDayTarget) {
+    moveToDay(key, crossDayTarget);
+  } else if (startIndex !== targetIndex) {
+    if (mode === 'day') {
+      reorderDayToPosition(key, targetIndex);
+    } else {
+      const ids = items.map(el => el.dataset.locid);
+      ids.splice(startIndex, 1);
+      ids.splice(targetIndex, 0, key);
+      const day = getLoc(key) ? getLoc(key).date : null;
+      if (day) reorderDay(day, ids);
+    }
+  } else {
+    rerenderCurrent();
+  }
+}
+// 把整个 D? 的内容（地点+标题）挪到行程里的另一个位置；日期"槽位"本身保持原顺序，
+// 只是哪天对应哪份内容发生了交换 —— 等价于把这一整天搬到了你想要的位置。
+function reorderDayToPosition(dateStr, targetIndex) {
+  const days = getDays();
+  const fromIndex = days.findIndex(d => d.id === dateStr);
+  if (fromIndex < 0 || fromIndex === targetIndex) return;
+  const slots = days.map(d => d.id); // 固定不变的日期槽位序列
+  const contents = days.map(d => ({ locs: LOCS.filter(l => l.date === d.id), title: DAY_TITLES[d.id] || '' }));
+  const moved = contents.splice(fromIndex, 1)[0];
+  contents.splice(targetIndex, 0, moved);
+  const newTitles = {};
+  contents.forEach((c, i) => {
+    const dt = slots[i];
+    c.locs.forEach(l => { l.date = dt; });
+    newTitles[dt] = c.title;
+  });
+  DAY_TITLES = newTitles;
+  saveData();
+  cur = 'overview';
+  go('overview');
+}
+// 直接把某一天的日期改成另一个日期：这天的内容会自动挪到行程里对应的位置上（必须是当前起止范围内的日期）
+function moveDayToDate(currentDateStr, newDateStr) {
+  if (!newDateStr || newDateStr === currentDateStr) return;
+  const days = getDays();
+  const targetIndex = days.findIndex(d => d.id === newDateStr);
+  if (targetIndex < 0) {
+    alert('这个日期不在当前行程范围内，先去总览页把行程的起止日期往外调一下，再回来改。');
+    rerenderCurrent();
+    return;
+  }
+  reorderDayToPosition(currentDateStr, targetIndex);
+}
+function setDayTitle(dateStr, val) { DAY_TITLES[dateStr] = val; saveData(); rerenderCurrent(); }
+function setTripStart(v) { if (!v) return; TRIP.start = v; if (TRIP.start > TRIP.end) TRIP.end = TRIP.start; saveData(); rerenderCurrent(); }
+function setTripEnd(v) { if (!v) return; TRIP.end = v; if (TRIP.end < TRIP.start) TRIP.start = TRIP.end; saveData(); rerenderCurrent(); }
+function addDayBefore() {
+  if (getDays().length >= 21 && !confirm('行程已经有 ' + getDays().length + ' 天了，确定还要继续加吗？')) return;
+  TRIP.start = addDays(TRIP.start, -1); saveData(); rerenderCurrent();
+}
+function addDayAfter() {
+  if (getDays().length >= 21 && !confirm('行程已经有 ' + getDays().length + ' 天了，确定还要继续加吗？')) return;
+  TRIP.end = addDays(TRIP.end, 1); saveData(); rerenderCurrent();
+}
+function deleteDay(dateStr) {
+  const [lo, hi] = effectiveRange();
+  if (lo === hi) { alert('至少要保留一天'); return; }
+  if (!confirm('确定删除这一天吗？这天的地点会自动并到旁边的一天里。')) return;
+  if (dateStr === lo) {
+    LOCS.forEach(l => { if (l.date === dateStr) l.date = addDays(dateStr, 1); });
+    TRIP.start = addDays(dateStr, 1);
+  } else if (dateStr === hi) {
+    LOCS.forEach(l => { if (l.date === dateStr) l.date = addDays(dateStr, -1); });
+    TRIP.end = addDays(dateStr, -1);
+  } else {
+    LOCS.forEach(l => {
+      if (l.date === dateStr) l.date = addDays(dateStr, -1);
+      else if (l.date && l.date > dateStr) l.date = addDays(l.date, -1);
+    });
+    if (TRIP.end > dateStr) TRIP.end = addDays(TRIP.end, -1);
+  }
+  delete DAY_TITLES[dateStr];
+  saveData();
+  cur = 'overview';
+  go('overview');
+}
+function exportData() {
+  const blob = new Blob([JSON.stringify({ TRIP, LOCS, DAY_TITLES }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'beijing-trip-data.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importData(evt) {
+  const file = evt.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!parsed || !parsed.TRIP || !Array.isArray(parsed.LOCS) || !parsed.LOCS.length) throw new Error('格式不对');
+      TRIP = parsed.TRIP; LOCS = parsed.LOCS; DAY_TITLES = parsed.DAY_TITLES || {};
+      saveData();
+      cur = 'overview';
+      go('overview');
+      alert('导入成功！');
+    } catch (e) {
+      alert('这个文件读不懂，确认一下是不是之前导出的那个 json 文件。');
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+function resetData() {
+  if (!confirm('确定要恢复成最初的默认行程吗？你在这台设备上改过的内容会被清空。')) return;
+  TRIP = JSON.parse(JSON.stringify(DEFAULT_TRIP));
+  LOCS = JSON.parse(JSON.stringify(DEFAULT_LOCS));
+  DAY_TITLES = JSON.parse(JSON.stringify(DEFAULT_DAY_TITLES));
+  saveData();
+  cur = 'overview';
+  go('overview');
+}
+
+/* ── Action Sheet 导航选择 ── */
+const asOverlay = document.createElement('div');
+asOverlay.className = 'as-overlay';
+asOverlay.innerHTML = `<div class="as-sheet">
+  <div class="as-group" id="as-opts"></div>
+  <div class="as-group"><button class="as-item as-cancel" onclick="closeAS()">取消</button></div>
+</div>`;
+document.body.appendChild(asOverlay);
+asOverlay.addEventListener('click', e => { if (e.target === asOverlay) closeAS(); });
+
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+function amapAppUrl(name, lat, lng) {
+  const [glng, glat] = gposLL(lat, lng);
+  const scheme = IS_IOS ? 'iosamap' : 'androidamap';
+  return `${scheme}://viewMap?sourceApplication=trip&poiname=${encodeURIComponent(name)}&lat=${glat}&lon=${glng}&dev=0`;
+}
+function amapWebUrl(name, lat, lng) {
+  const [glng, glat] = gposLL(lat, lng);
+  return `https://uri.amap.com/marker?position=${glng},${glat}&name=${encodeURIComponent(name)}&src=trip&coordinate=gaode&callnative=1`;
+}
+function openAmap(name, lat, lng) {
+  if (IN_APP_WEBVIEW) { window.open(amapWebUrl(name, lat, lng)); return; }
+  window.location.href = amapAppUrl(name, lat, lng);
+}
+function openAS(name, lat, lng) {
+  const q = encodeURIComponent(name + ' Beijing');
+  const encName = encodeURIComponent(name);
+  const safeName = name.replace(/'/g,"\\'");
+  const appleUrl = IN_APP_WEBVIEW
+    ? `https://maps.apple.com/?q=${lat},${lng}&ll=${lat},${lng}&name=${encName}`
+    : `maps://maps.apple.com/?q=${lat},${lng}&name=${encName}`;
+  const googleUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+  document.getElementById('as-opts').innerHTML =
+    `<button class="as-item" onclick="openAmap('${safeName}',${lat},${lng});closeAS()">🧭 高德地图 App</button>` +
+    `<button class="as-item" onclick="window.open('${appleUrl}');closeAS()">🍎 Apple Maps</button>` +
+    `<button class="as-item" onclick="window.open('${googleUrl}');closeAS()">🗺️ Google Maps</button>`;
+  asOverlay.classList.add('show');
+}
+function closeAS() { asOverlay.classList.remove('show'); }
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  布局：可拖拽调整大小 / 收起展开地图                            ║
+// ║  整体包一层 try/catch —— 万一这里出意外，也不会连累地图加载/      ║
+// ║  侧边栏标签这些已经独立跑起来的核心功能。                        ║
+// ╚══════════════════════════════════════════════════════════════╝
+try {
+  var appEl = document.getElementById('app');
+  var mapPane = document.getElementById('mapPane');
+  var sidePane = document.getElementById('sidePane');
+  var resizeHandle = document.getElementById('resizeHandle');
+  var mapToggleBtn = document.getElementById('mapToggleBtn');
+  var mapCollapsed = false;
+  var currentMapSize = '38vh'; // 手机上地图展开时的高度，唯一真相来源，不依赖临时记忆变量
+  var isDesktopMode = function() {
+    try { return window.matchMedia('(min-width:880px)').matches; } catch (e) { return false; }
+  };
+  var LAYOUT_KEY = 'bjtrip-layout-v2';
+  var saveLayout = function() {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify({ mapCollapsed, currentMapSize, sideBasis: sidePane.style.flexBasis || '' })); } catch (e) {}
+  };
+  var loadLayout = function() {
+    try {
+      const raw = localStorage.getItem(LAYOUT_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (p.sideBasis) sidePane.style.flexBasis = p.sideBasis;
+      if (p.currentMapSize) currentMapSize = p.currentMapSize;
+      if (p.mapCollapsed) mapCollapsed = true;
+    } catch (e) {}
+  };
+  // 根据当前的 mapCollapsed / currentMapSize 状态，确定性地应用地图面板的大小（不猜，不依赖"上次记住的尺寸"）
+  var applyMapPaneSize = function() {
+    if (mapCollapsed) {
+      mapPane.classList.add('collapsed');
+    } else {
+      mapPane.classList.remove('collapsed');
+      mapPane.style.flexBasis = isDesktopMode() ? '' : currentMapSize;
+    }
+    mapToggleBtn.textContent = mapCollapsed ? '显示地图' : '收起地图';
+  };
+  loadLayout();
+  applyMapPaneSize();
+  window.toggleMapPane = function() {
+    mapCollapsed = !mapCollapsed;
+    applyMapPaneSize();
+    saveLayout();
+    setTimeout(() => { try { map && map.resize && map.resize(); } catch (e) {} }, 260);
+  };
+  var dragging = false;
+  resizeHandle.addEventListener('pointerdown', e => {
+    dragging = true;
+    try { resizeHandle.setPointerCapture(e.pointerId); } catch (e) {}
+    document.body.style.userSelect = 'none';
+  });
+  resizeHandle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const rect = appEl.getBoundingClientRect();
+    if (isDesktopMode()) {
+      let w = e.clientX - rect.left;
+      w = Math.max(280, Math.min(w, rect.width - 280));
+      sidePane.style.flexBasis = w + 'px';
+    } else {
+      let h = e.clientY - rect.top;
+      h = Math.max(140, Math.min(h, rect.height - 200));
+      currentMapSize = h + 'px';
+      mapPane.style.flexBasis = currentMapSize;
+    }
+  });
+  var endDrag = function() {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    saveLayout();
+    setTimeout(() => { try { map && map.resize && map.resize(); } catch (e) {} }, 50);
+  };
+  resizeHandle.addEventListener('pointerup', endDrag);
+  resizeHandle.addEventListener('pointercancel', endDrag);
+  window.addEventListener('resize', () => { try { map && map.resize && map.resize(); } catch (e) {} });
+} catch (layoutErr) {
+  console.error('布局初始化出了点意外，但不影响主功能：', layoutErr);
+}
+</script>
+</body>
+</html>
